@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Intervento Tecnico - Nuova Segnalazione{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Nuova Segnalazione - Intervento Tecnico
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('new_tecnico') }}" enctype="multipart/form-data">
+                    <!-- Requester Name -->
+                    <div class="mb-3">
+                        <label for="requester_name" class="form-label">
+                            Nome Richiedente <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="requester_name" name="requester_name" 
+                               placeholder="Inserisci nome e cognome" required>
+                    </div>
+
+                    <!-- Department -->
+                    <div class="mb-3">
+                        <label for="department" class="form-label">
+                            Reparto <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="department" name="department" 
+                               placeholder="Es: IT, Manutenzione, Amministrazione, ecc." required>
+                    </div>
+
+                    <!-- Title -->
+                    <div class="mb-3">
+                        <label for="title" class="form-label">
+                            Titolo Problema <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               placeholder="Breve descrizione del problema" required>
+                    </div>
+
+                    <!-- Priority -->
+                    <div class="mb-3">
+                        <label for="priority" class="form-label">
+                            Priorità <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" id="priority" name="priority" required>
+                            <option value="">Seleziona priorità...</option>
+                            <option value="BASSA">Bassa</option>
+                            <option value="MEDIA">Media</option>
+                            <option value="ALTA">Alta</option>
+                        </select>
+                        <div class="form-text">
+                            <strong>Bassa:</strong> Problemi non urgenti | 
+                            <strong>Media:</strong> Problemi che richiedono attenzione | 
+                            <strong>Alta:</strong> Problemi urgenti che bloccano attività
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-3">
+                        <label for="description" class="form-label">
+                            Descrizione Dettagliata <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="description" name="description" rows="5" 
+                                  placeholder="Descrivi in dettaglio il problema..." required></textarea>
+                    </div>
+
+                    <!-- Image Upload -->
+                    <div class="mb-4">
+                        <label for="image" class="form-label">
+                            Allega Foto (Facoltativo)
+                        </label>
+                        <input type="file" class="form-control" id="image" name="image" 
+                               accept=".jpg,.jpeg,.png">
+                        <div class="form-text">
+                            Formati supportati: JPG, JPEG, PNG (Max 16MB). 
+                            Allega una foto se può aiutare a comprendere meglio il problema.
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-1"></i>Annulla
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle me-1"></i>Invia Segnalazione
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Info Box -->
+        <div class="alert alert-info mt-3">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Nota:</strong> La tua richiesta verrà valutata e assegnata al team appropriato in base alla priorità indicata.
+        </div>
+    </div>
+</div>
+{% endblock %}
