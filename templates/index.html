@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Sistema Ticketing{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-10">
+        <div class="text-center mb-5">
+            <h1 class="display-4 fw-bold mb-3">
+                <i class="bi bi-tools text-primary me-3"></i>Sistema di Ticketing
+            </h1>
+            <p class="lead text-muted">Segnala un problema e ricevi assistenza rapida</p>
+        </div>
+
+        <div class="card shadow-lg border-0 mb-4">
+            <div class="card-body p-5">
+                <h2 class="text-center mb-5 fw-bold">Cosa vuoi segnalare?</h2>
+                
+                <div class="row g-4">
+                    <!-- Intervento Mezzi -->
+                    <div class="col-md-6">
+                        <a href="{{ url_for('new_mezzi') }}" class="text-decoration-none">
+                            <div class="card h-100 border-primary hover-card" style="transition: all 0.3s;">
+                                <div class="card-body text-center p-5">
+                                    <div class="mb-4">
+                                        <i class="bi bi-truck display-1 text-primary"></i>
+                                    </div>
+                                    <h3 class="card-title fw-bold mb-3">Intervento Mezzi</h3>
+                                    <p class="card-text text-muted">
+                                        Segnala problemi tecnici relativi a veicoli, macchinari e attrezzature
+                                    </p>
+                                    <div class="mt-4">
+                                        <span class="btn btn-primary btn-lg">
+                                            Crea Segnalazione <i class="bi bi-arrow-right ms-2"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <!-- Intervento Tecnico -->
+                    <div class="col-md-6">
+                        <a href="{{ url_for('new_tecnico') }}" class="text-decoration-none">
+                            <div class="card h-100 border-success hover-card" style="transition: all 0.3s;">
+                                <div class="card-body text-center p-5">
+                                    <div class="mb-4">
+                                        <i class="bi bi-wrench-adjustable display-1 text-success"></i>
+                                    </div>
+                                    <h3 class="card-title fw-bold mb-3">Intervento Tecnico</h3>
+                                    <p class="card-text text-muted">
+                                        Richiedi assistenza tecnica per problemi IT, infrastrutture o altre necessità
+                                    </p>
+                                    <div class="mt-4">
+                                        <span class="btn btn-success btn-lg">
+                                            Crea Segnalazione <i class="bi bi-arrow-right ms-2"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="text-center p-3">
+                    <i class="bi bi-clock-history display-4 text-primary mb-3"></i>
+                    <h5>Tracciamento Rapido</h5>
+                    <p class="text-muted small">Monitora lo stato della tua segnalazione in tempo reale</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center p-3">
+                    <i class="bi bi-people display-4 text-success mb-3"></i>
+                    <h5>Team Dedicato</h5>
+                    <p class="text-muted small">Il nostro team di esperti è sempre pronto ad aiutarti</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center p-3">
+                    <i class="bi bi-check-circle display-4 text-info mb-3"></i>
+                    <h5>Risoluzione Veloce</h5>
+                    <p class="text-muted small">Processamento rapido ed efficiente delle richieste</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+</style>
+{% endblock %}

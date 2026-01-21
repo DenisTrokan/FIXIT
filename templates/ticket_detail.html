@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket #{{ ticket.id }} - Dettagli{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold">
+                <i class="bi bi-ticket-detailed me-2"></i>Ticket #{{ ticket.id }}
+            </h2>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Torna alla Dashboard
+            </a>
+        </div>
+
+        <div class="row">
+            <!-- Main Details -->
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            {% if ticket.ticket_type == 'MEZZO' %}
+                                <i class="bi bi-truck me-2"></i>Intervento Mezzi
+                            {% else %}
+                                <i class="bi bi-wrench-adjustable me-2"></i>Intervento Tecnico
+                            {% endif %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Richiedente:</strong>
+                                <p>{{ ticket.requester_name }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Data Creazione:</strong>
+                                <p>{{ ticket.created_at.strftime('%d/%m/%Y alle %H:%M') }}</p>
+                            </div>
+                        </div>
+
+                        {% if ticket.ticket_type == 'MEZZO' %}
+                            <!-- MEZZO Specific Fields -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong>Tipo di Mezzo:</strong>
+                                    <p>{{ ticket.vehicle_type }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>N°/Targa:</strong>
+                                    <p>{{ ticket.vehicle_number }}</p>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong>Ore/Km:</strong>
+                                    <p>{{ ticket.mileage_hours }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Categoria Anomalia:</strong>
+                                    <p><span class="badge bg-info">{{ ticket.anomaly_category }}</span></p>
+                                </div>
+                            </div>
+                        {% else %}
+                            <!-- TECNICO Specific Fields -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong>Reparto:</strong>
+                                    <p>{{ ticket.department }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Priorità:</strong>
+                                    <p>
+                                        {% if ticket.priority == 'BASSA' %}
+                                            <span class="badge priority-bassa">Bassa</span>
+                                        {% elif ticket.priority == 'MEDIA' %}
+                                            <span class="badge priority-media">Media</span>
+                                        {% elif ticket.priority == 'ALTA' %}
+                                            <span class="badge priority-alta">Alta</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <strong>Titolo:</strong>
+                                <p>{{ ticket.title }}</p>
+                            </div>
+                        {% endif %}
+
+                        <hr>
+
+                        <div class="mb-3">
+                            <strong>Descrizione:</strong>
+                            <p class="text-muted">{{ ticket.description }}</p>
+                        </div>
+
+                        {% if ticket.image_filename %}
+                            <hr>
+                            <div class="mb-3">
+                                <strong>Foto Allegata:</strong>
+                                <div class="mt-2">
+                                    <img src="{{ url_for('static', filename='uploads/' + ticket.image_filename) }}" 
+                                         class="img-fluid rounded shadow" 
+                                         style="max-height: 400px; cursor: pointer;"
+                                         onclick="window.open(this.src, '_blank')">
+                                    <p class="text-muted small mt-2">
+                                        <i class="bi bi-info-circle me-1"></i>Clicca sull'immagine per ingrandire
+                                    </p>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions Sidebar -->
+            <div class="col-md-4">
+                <!-- Status Card -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="bi bi-flag me-2"></i>Gestione Status</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <strong>Status Attuale:</strong>
+                            <div class="mt-2">
+                                {% if ticket.status == 'NUOVO' %}
+                                    <span class="badge status-nuovo fs-6">Nuovo</span>
+                                {% elif ticket.status == 'IN_LAVORAZIONE' %}
+                                    <span class="badge status-in_lavorazione fs-6">In Lavorazione</span>
+                                {% else %}
+                                    <span class="badge status-risolto fs-6">Risolto</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if ticket.started_at %}
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-play-circle me-1"></i>
+                                    Iniziato: {{ ticket.started_at.strftime('%d/%m/%Y %H:%M') }}
+                                </small>
+                            </div>
+                        {% endif %}
+
+                        {% if ticket.closed_at %}
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Chiuso: {{ ticket.closed_at.strftime('%d/%m/%Y %H:%M') }}
+                                </small>
+                            </div>
+                        {% endif %}
+
+                        <hr>
+
+                        <form method="POST" action="{{ url_for('ticket_detail', ticket_id=ticket.id) }}">
+                            <input type="hidden" name="action" value="update_status">
+                            <label class="form-label">Cambia Status:</label>
+                            <select name="status" class="form-select mb-2">
+                                <option value="NUOVO" {% if ticket.status == 'NUOVO' %}selected{% endif %}>Nuovo</option>
+                                <option value="IN_LAVORAZIONE" {% if ticket.status == 'IN_LAVORAZIONE' %}selected{% endif %}>In Lavorazione</option>
+                                <option value="RISOLTO" {% if ticket.status == 'RISOLTO' %}selected{% endif %}>Risolto</option>
+                            </select>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-save me-1"></i>Aggiorna Status
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Assignment Card -->
+                <div class="card mb-3">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0"><i class="bi bi-person-check me-2"></i>Assegnazione</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <strong>Assegnato a:</strong>
+                            <div class="mt-2">
+                                {% if ticket.assigned_to %}
+                                    <span class="badge bg-secondary">{{ ticket.assigned_to.username }}</span>
+                                {% else %}
+                                    <span class="text-warning">Non assegnato</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <form method="POST" action="{{ url_for('ticket_detail', ticket_id=ticket.id) }}">
+                            <input type="hidden" name="action" value="assign">
+                            <label class="form-label">Assegna a:</label>
+                            <select name="assigned_to_id" class="form-select mb-2">
+                                <option value="none">Nessuno</option>
+                                {% for admin in admins %}
+                                    <option value="{{ admin.id }}" 
+                                            {% if ticket.assigned_to_id == admin.id %}selected{% endif %}>
+                                        {{ admin.username }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-person-plus me-1"></i>Assegna
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Delete Card -->
+                <div class="card border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h6 class="mb-0"><i class="bi bi-trash me-2"></i>Zona Pericolosa</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted mb-3">
+                            L'eliminazione del ticket è permanente e non può essere annullata.
+                        </p>
+                        <form method="POST" action="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" 
+                              onsubmit="return confirm('Sei sicuro di voler eliminare questo ticket? Questa azione è irreversibile.');">
+                            <input type="hidden" name="action" value="delete">
+                            <button type="submit" class="btn btn-danger w-100">
+                                <i class="bi bi-trash me-1"></i>Elimina Ticket
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

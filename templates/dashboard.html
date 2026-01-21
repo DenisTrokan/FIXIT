@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold">
+                <i class="bi bi-speedometer2 me-2"></i>Dashboard Amministratore
+            </h2>
+        </div>
+
+        <!-- Filters Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-funnel me-2"></i>Filtri di Ricerca
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('dashboard') }}" class="row g-3">
+                    <!-- Search -->
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">Cerca</label>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               placeholder="ID, Nome, Descrizione..." 
+                               value="{{ request.args.get('search', '') }}">
+                    </div>
+
+                    <!-- Status Filter -->
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">Tutti</option>
+                            <option value="NUOVO" {% if request.args.get('status') == 'NUOVO' %}selected{% endif %}>Nuovo</option>
+                            <option value="IN_LAVORAZIONE" {% if request.args.get('status') == 'IN_LAVORAZIONE' %}selected{% endif %}>In Lavorazione</option>
+                            <option value="RISOLTO" {% if request.args.get('status') == 'RISOLTO' %}selected{% endif %}>Risolto</option>
+                        </select>
+                    </div>
+
+                    <!-- Assigned Filter -->
+                    <div class="col-md-3">
+                        <label for="assigned" class="form-label">Assegnato a</label>
+                        <select class="form-select" id="assigned" name="assigned">
+                            <option value="">Tutti</option>
+                            <option value="unassigned" {% if request.args.get('assigned') == 'unassigned' %}selected{% endif %}>Non Assegnato</option>
+                            {% for admin in admins %}
+                                <option value="{{ admin.id }}" {% if request.args.get('assigned') == admin.id|string %}selected{% endif %}>
+                                    {{ admin.username }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="btn-group w-100" role="group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search"></i>
+                            </button>
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                                <i class="bi bi-x-lg"></i>
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tickets Table -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-ul me-2"></i>Elenco Ticket</span>
+                <span class="badge bg-primary">{{ tickets|length }} Ticket</span>
+            </div>
+            <div class="card-body p-0">
+                {% if tickets %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%;">ID</th>
+                                    <th style="width: 10%;">Tipo</th>
+                                    <th style="width: 12%;">Status</th>
+                                    <th style="width: 12%;">Data</th>
+                                    <th style="width: 15%;">Richiedente</th>
+                                    <th style="width: 20%;">Titolo/Categoria</th>
+                                    <th style="width: 10%;">Priorità</th>
+                                    <th style="width: 10%;">Assegnato</th>
+                                    <th style="width: 6%;" class="text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ticket in tickets %}
+                                <tr>
+                                    <td class="fw-bold">#{{ ticket.id }}</td>
+                                    <td>
+                                        {% if ticket.ticket_type == 'MEZZO' %}
+                                            <span class="badge bg-primary">
+                                                <i class="bi bi-truck me-1"></i>Mezzo
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-wrench-adjustable me-1"></i>Tecnico
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if ticket.status == 'NUOVO' %}
+                                            <span class="badge status-nuovo">Nuovo</span>
+                                        {% elif ticket.status == 'IN_LAVORAZIONE' %}
+                                            <span class="badge status-in_lavorazione">In Lavorazione</span>
+                                        {% else %}
+                                            <span class="badge status-risolto">Risolto</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ ticket.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                    </td>
+                                    <td>{{ ticket.requester_name }}</td>
+                                    <td>
+                                        {% if ticket.ticket_type == 'MEZZO' %}
+                                            {{ ticket.anomaly_category }}
+                                            {% if ticket.image_filename %}
+                                                <i class="bi bi-image text-info ms-1" title="Con foto"></i>
+                                            {% endif %}
+                                        {% else %}
+                                            {{ ticket.title }}
+                                            {% if ticket.image_filename %}
+                                                <i class="bi bi-image text-info ms-1" title="Con foto"></i>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if ticket.priority %}
+                                            {% if ticket.priority == 'BASSA' %}
+                                                <span class="badge priority-bassa">Bassa</span>
+                                            {% elif ticket.priority == 'MEDIA' %}
+                                                <span class="badge priority-media">Media</span>
+                                            {% elif ticket.priority == 'ALTA' %}
+                                                <span class="badge priority-alta">Alta</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if ticket.assigned_to %}
+                                            <small class="text-muted">
+                                                <i class="bi bi-person-check me-1"></i>{{ ticket.assigned_to.username }}
+                                            </small>
+                                        {% else %}
+                                            <small class="text-warning">
+                                                <i class="bi bi-person-x me-1"></i>Non assegnato
+                                            </small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" 
+                                           class="btn btn-sm btn-outline-primary" title="Visualizza dettagli">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <p class="text-muted mt-3">Nessun ticket trovato con i filtri selezionati.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
