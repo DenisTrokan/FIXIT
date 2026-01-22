@@ -30,6 +30,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+    is_superuser = db.Column(db.Boolean, default=False, nullable=False)
     
     # Relationship
     assigned_tickets = db.relationship('Ticket', backref='assigned_to', lazy=True, foreign_keys='Ticket.assigned_to_id')
@@ -66,7 +67,6 @@ class Ticket(db.Model):
     # MEZZO-specific fields
     vehicle_type = db.Column(db.String(50), nullable=True)
     vehicle_number = db.Column(db.String(50), nullable=True)
-    mileage_hours = db.Column(db.String(50), nullable=True)
     anomaly_category = db.Column(db.String(100), nullable=True)
     
     # TECNICO-specific fields
@@ -113,6 +113,17 @@ def login_required(f):
     return decorated_function
 
 
+def superuser_required(f):
+    """Decorator to require superuser role"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('is_superuser'):
+            flash('Permesso negato: funzionalità riservata agli amministratori.', 'danger')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 # ==================== PUBLIC ROUTES ====================
 
 @app.route('/')
@@ -129,7 +140,6 @@ def new_mezzi():
         requester_name = request.form.get('requester_name')
         vehicle_type = request.form.get('vehicle_type')
         vehicle_number = request.form.get('vehicle_number')
-        mileage_hours = request.form.get('mileage_hours')
         anomaly_category = request.form.get('anomaly_category')
         description = request.form.get('description')
         
@@ -151,7 +161,6 @@ def new_mezzi():
             requester_name=requester_name,
             vehicle_type=vehicle_type,
             vehicle_number=vehicle_number,
-            mileage_hours=mileage_hours,
             anomaly_category=anomaly_category,
             description=description,
             image_filename=image_filename
@@ -236,6 +245,7 @@ def login():
         if user and user.check_password(password):
             session['user_id'] = user.id
             session['username'] = user.username
+            session['is_superuser'] = user.is_superuser
             flash('Login effettuato con successo!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -296,6 +306,63 @@ def dashboard():
     return render_template('dashboard.html', tickets=tickets, admins=admins, pagination=pagination, per_page=per_page)
 
 
+@app.route('/admin/users', methods=['GET', 'POST'])
+@login_required
+@superuser_required
+def manage_users():
+    """Superuser-only user management view"""
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'create':
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
+            is_super = True if request.form.get('is_superuser') == 'on' else False
+
+            if not username or not password:
+                flash('Username e password sono obbligatori.', 'danger')
+            elif User.query.filter_by(username=username).first():
+                flash('Username già esistente.', 'warning')
+            else:
+                new_user = User(username=username, is_superuser=is_super)
+                new_user.set_password(password)
+                db.session.add(new_user)
+                db.session.commit()
+                flash('Utente creato con successo.', 'success')
+
+        elif action == 'delete':
+            user_id = request.form.get('user_id')
+            if user_id:
+                user = User.query.get(int(user_id))
+                if not user:
+                    flash('Utente non trovato.', 'danger')
+                elif user.id == session.get('user_id'):
+                    flash('Non puoi eliminare il tuo stesso account.', 'warning')
+                else:
+                    db.session.delete(user)
+                    db.session.commit()
+                    flash('Utente eliminato con successo.', 'success')
+
+        elif action == 'reset_password':
+            user_id = request.form.get('user_id')
+            new_password = request.form.get('new_password', '').strip()
+            if not new_password:
+                flash('La nuova password è obbligatoria.', 'danger')
+            else:
+                user = User.query.get(int(user_id)) if user_id else None
+                if not user:
+                    flash('Utente non trovato.', 'danger')
+                else:
+                    user.set_password(new_password)
+                    db.session.commit()
+                    flash('Password aggiornata con successo.', 'success')
+
+        return redirect(url_for('manage_users'))
+
+    users = User.query.order_by(User.username).all()
+    return render_template('users.html', users=users)
+
+
 @app.route('/admin/ticket/<int:ticket_id>', methods=['GET', 'POST'])
 @login_required
 def ticket_detail(ticket_id):
@@ -353,6 +420,18 @@ def ticket_detail(ticket_id):
                 db.session.add(comment)
                 db.session.commit()
                 flash('Commento aggiunto con successo.', 'success')
+
+        elif action == 'update_priority':
+            if ticket.ticket_type != 'TECNICO':
+                flash('La priorità è modificabile solo per i ticket tecnici.', 'warning')
+            else:
+                new_priority = request.form.get('priority')
+                if new_priority not in {'BASSA', 'MEDIA', 'ALTA'}:
+                    flash('Priorità non valida.', 'danger')
+                else:
+                    ticket.priority = new_priority
+                    db.session.commit()
+                    flash('Priorità aggiornata con successo.', 'success')
         
         return redirect(url_for('ticket_detail', ticket_id=ticket_id))
     
@@ -374,10 +453,15 @@ def init_db():
         if not admin:
             admin = User(username='admin')
             admin.set_password('admin123')
+            admin.is_superuser = True
             db.session.add(admin)
             db.session.commit()
             print('Default admin user created: admin/admin123')
         else:
+            # Ensure admin retains superuser status
+            if not admin.is_superuser:
+                admin.is_superuser = True
+                db.session.commit()
             print('Admin user already exists.')
 
 

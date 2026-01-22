@@ -54,10 +54,6 @@
                             </div>
                             <div class="row mb-3">
                                 <div class="col-md-6">
-                                    <strong>Ore/Km:</strong>
-                                    <p>{{ ticket.mileage_hours }}</p>
-                                </div>
-                                <div class="col-md-6">
                                     <strong>Categoria Anomalia:</strong>
                                     <p><span class="badge bg-info">{{ ticket.anomaly_category }}</span></p>
                                 </div>
@@ -74,6 +70,8 @@
                                             <span class="badge priority-media">Media</span>
                                         {% elif ticket.priority == 'ALTA' %}
                                             <span class="badge priority-alta">Alta</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
                                         {% endif %}
                                     </p>
                                 </div>
@@ -210,6 +208,43 @@
                         </form>
                     </div>
                 </div>
+
+                {% if ticket.ticket_type == 'TECNICO' %}
+                <!-- Priority Card -->
+                <div class="card mb-3">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0"><i class="bi bi-exclamation-diamond me-2"></i>Priorità</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <strong>Priorità attuale:</strong>
+                            <div class="mt-2">
+                                {% if ticket.priority == 'BASSA' %}
+                                    <span class="badge priority-bassa fs-6">Bassa</span>
+                                {% elif ticket.priority == 'MEDIA' %}
+                                    <span class="badge priority-media fs-6">Media</span>
+                                {% elif ticket.priority == 'ALTA' %}
+                                    <span class="badge priority-alta fs-6">Alta</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <form method="POST" action="{{ url_for('ticket_detail', ticket_id=ticket.id) }}">
+                            <input type="hidden" name="action" value="update_priority">
+                            <label class="form-label">Modifica Priorità:</label>
+                            <select name="priority" class="form-select mb-2">
+                                <option value="BASSA" {% if ticket.priority == 'BASSA' %}selected{% endif %}>Bassa</option>
+                                <option value="MEDIA" {% if ticket.priority == 'MEDIA' %}selected{% endif %}>Media</option>
+                                <option value="ALTA" {% if ticket.priority == 'ALTA' %}selected{% endif %}>Alta</option>
+                            </select>
+                            <button type="submit" class="btn btn-warning w-100">
+                                <i class="bi bi-arrow-repeat me-1"></i>Aggiorna Priorità
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- Assignment Card -->
                 <div class="card mb-3">

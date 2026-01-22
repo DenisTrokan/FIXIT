@@ -160,7 +160,7 @@ FIXIT/
 - `assigned_to_id`: FK verso users
 
 **Campi specifici MEZZO**:
-- `vehicle_type`, `vehicle_number`, `mileage_hours`, `anomaly_category`
+- `vehicle_type`, `vehicle_number`, `anomaly_category`
 
 **Campi specifici TECNICO**:
 - `department`, `title`, `priority`
