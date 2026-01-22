@@ -185,33 +185,12 @@ app.run(debug=True, host='0.0.0.0', port=5000)  # Cambia 5000 con la porta desid
 
 ### Gestire gli utenti admin
 
-#### Script di gestione utenti interattivo
+La gestione degli utenti è disponibile tramite l'interfaccia web accessibile agli utenti con permessi di superuser.
 
-Usa lo script `manage_users.py` per gestire gli utenti:
-
-```powershell
-python manage_users.py
-```
-
-Funzionalità disponibili:
-- **Lista utenti**: Visualizza tutti gli utenti con ticket assegnati
-- **Aggiungi utente**: Crea un nuovo utente admin
-- **Elimina utente**: Rimuove un utente (i ticket assegnati vengono liberati)
-- **Cambia password**: Modifica la password di un utente esistente
-
-#### Aggiungere utenti tramite Python
-
-Puoi anche aggiungere utenti direttamente:
-
-```python
-from app import app, db, User
-
-with app.app_context():
-    new_admin = User(username='nuovo_admin')
-    new_admin.set_password('password_sicura')
-    db.session.add(new_admin)
-    db.session.commit()
-```
+Accedi come superuser (admin/admin123 di default) e vai su **Utenze** nella barra di navigazione per:
+- **Creare nuovi utenti**: Aggiungi username, password e assegna permessi superuser
+- **Eliminare utenti**: Rimuovi utenti esistenti (i ticket assegnati vengono liberati)
+- **Reimpostare password**: Modifica la password di qualsiasi utente
 
 ### Popolare il database con dati di test
 
