@@ -125,6 +125,11 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
                         </li>
+                        {% if session.get('is_superuser') %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('manage_users') }}">Utenze</a>
+                        </li>
+                        {% endif %}
                         <li class="nav-item">
                             <span class="nav-link">
                                 <i class="bi bi-person-circle me-1"></i>{{ session.get('username') }}

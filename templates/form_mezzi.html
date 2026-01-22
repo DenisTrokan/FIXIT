@@ -27,8 +27,14 @@
                         <label for="vehicle_type" class="form-label">
                             Tipo di Mezzo <span class="text-danger">*</span>
                         </label>
-                        <input type="text" class="form-control" id="vehicle_type" name="vehicle_type" 
-                               placeholder="Es: Mafi, Ralla, Forklift, ecc." required>
+                        <select class="form-select" id="vehicle_type" name="vehicle_type" required>
+                            <option value="">Seleziona il mezzo...</option>
+                            <option value="Trattore Portuale">Trattore Portuale</option>
+                            <option value="Forklift">Forklift</option>
+                            <option value="Gru">Gru</option>
+                            <option value="Auto Aziendale">Auto Aziendale</option>
+                            <option value="Reach Stacker">Reach Stacker</option>
+                        </select>
                     </div>
 
                     <!-- Vehicle Number -->
@@ -38,15 +44,6 @@
                         </label>
                         <input type="text" class="form-control" id="vehicle_number" name="vehicle_number" 
                                placeholder="Numero o targa del mezzo" required>
-                    </div>
-
-                    <!-- Mileage/Hours -->
-                    <div class="mb-3">
-                        <label for="mileage_hours" class="form-label">
-                            Ore / Km Mezzo <span class="text-danger">*</span>
-                        </label>
-                        <input type="text" class="form-control" id="mileage_hours" name="mileage_hours" 
-                               placeholder="Ore o chilometraggio" required>
                     </div>
 
                     <!-- Anomaly Category -->
@@ -101,7 +98,7 @@
         <!-- Info Box -->
         <div class="alert alert-info mt-3">
             <i class="bi bi-info-circle me-2"></i>
-            <strong>Nota:</strong> Una volta inviata, la segnalazione verrà presa in carico dal nostro team tecnico nel più breve tempo possibile.
+            <strong>Nota:</strong> Una volta inviata, la segnalazione verrà presa in carico dal nostro team nel più breve tempo possibile.
         </div>
     </div>
 </div>

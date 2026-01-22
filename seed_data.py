@@ -80,7 +80,6 @@ def seed_tickets(users):
             'requester': random.choice(requester_names),
             'vehicle_type': 'Forklift',
             'vehicle_number': 'FL-042',
-            'mileage_hours': '1.250 ore',
             'anomaly_category': 'Spie/Allarmi',
             'description': 'Spia motore accesa durante le operazioni di carico. Il mezzo continua a funzionare ma richiede verifica urgente.',
             'status': 'NUOVO'
@@ -90,7 +89,6 @@ def seed_tickets(users):
             'requester': random.choice(requester_names),
             'vehicle_type': 'Mafi',
             'vehicle_number': 'MF-108',
-            'mileage_hours': '3.450 Km',
             'anomaly_category': 'Perdite Liquidi',
             'description': 'Notata perdita di olio idraulico sotto il mezzo. Chiazza evidente nel piazzale di stazionamento.',
             'status': 'IN_LAVORAZIONE',
@@ -104,7 +102,6 @@ def seed_tickets(users):
             'requester': random.choice(requester_names),
             'vehicle_type': 'Ralla',
             'vehicle_number': 'RL-225',
-            'mileage_hours': '890 Km',
             'anomaly_category': 'Pneumatici',
             'description': 'Pneumatico anteriore destro con usura eccessiva e possibile foratura lenta.',
             'status': 'RISOLTO',
@@ -119,7 +116,6 @@ def seed_tickets(users):
             'requester': random.choice(requester_names),
             'vehicle_type': 'Carrello Elevatore',
             'vehicle_number': 'CE-017',
-            'mileage_hours': '2.100 ore',
             'anomaly_category': 'Freni/Sterzo/Cambio',
             'description': 'Sterzo duro e poco reattivo. Difficoltà nelle manovre in spazi stretti.',
             'status': 'NUOVO'
@@ -129,7 +125,6 @@ def seed_tickets(users):
             'requester': random.choice(requester_names),
             'vehicle_type': 'Mafi',
             'vehicle_number': 'MF-095',
-            'mileage_hours': '5.670 Km',
             'anomaly_category': 'Rumori Insoliti',
             'description': 'Rumore metallico proveniente dal vano motore durante l\'accelerazione.',
             'status': 'IN_LAVORAZIONE',
@@ -219,7 +214,6 @@ def seed_tickets(users):
         if ticket_data['type'] == 'MEZZO':
             ticket.vehicle_type = ticket_data['vehicle_type']
             ticket.vehicle_number = ticket_data['vehicle_number']
-            ticket.mileage_hours = ticket_data['mileage_hours']
             ticket.anomaly_category = ticket_data['anomaly_category']
         
         # Campi specifici per TECNICO
