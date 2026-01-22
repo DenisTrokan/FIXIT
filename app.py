@@ -73,9 +73,26 @@ class Ticket(db.Model):
     department = db.Column(db.String(100), nullable=True)
     title = db.Column(db.String(200), nullable=True)
     priority = db.Column(db.String(20), nullable=True)  # 'BASSA', 'MEDIA', 'ALTA'
+
+    # Comments relationship
+    comments = db.relationship('Comment', backref='ticket', lazy=True, cascade='all, delete-orphan')
     
     def __repr__(self):
         return f'<Ticket {self.id} - {self.ticket_type}>'
+
+
+class Comment(db.Model):
+    """Comments added by operators on tickets"""
+    __tablename__ = 'comments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey('tickets.id'), nullable=False)
+    author_name = db.Column(db.String(100), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f'<Comment {self.id} on Ticket {self.ticket_id}>'
 
 
 # ==================== HELPER FUNCTIONS ====================
@@ -116,6 +133,18 @@ def new_mezzi():
         anomaly_category = request.form.get('anomaly_category')
         description = request.form.get('description')
         
+        # Handle file upload
+        image_filename = None
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and file.filename and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                # Add timestamp to filename to avoid conflicts
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = f"{timestamp}_{filename}"
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                image_filename = filename
+        
         # Create new ticket
         ticket = Ticket(
             ticket_type='MEZZO',
@@ -124,7 +153,8 @@ def new_mezzi():
             vehicle_number=vehicle_number,
             mileage_hours=mileage_hours,
             anomaly_category=anomaly_category,
-            description=description
+            description=description,
+            image_filename=image_filename
         )
         
         db.session.add(ticket)
@@ -157,7 +187,6 @@ def new_tecnico():
     if request.method == 'POST':
         # Get form data
         requester_name = request.form.get('requester_name')
-        department = request.form.get('department')
         title = request.form.get('title')
         priority = request.form.get('priority')
         description = request.form.get('description')
@@ -178,7 +207,6 @@ def new_tecnico():
         ticket = Ticket(
             ticket_type='TECNICO',
             requester_name=requester_name,
-            department=department,
             title=title,
             priority=priority,
             description=description,
@@ -233,6 +261,8 @@ def dashboard():
     search_query = request.args.get('search', '').strip()
     status_filter = request.args.get('status', '').strip()
     assigned_filter = request.args.get('assigned', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
     
     # Base query
     query = Ticket.query
@@ -256,13 +286,14 @@ def dashboard():
         else:
             query = query.filter(Ticket.assigned_to_id == int(assigned_filter))
     
-    # Sort by newest first
-    tickets = query.order_by(Ticket.created_at.desc()).all()
+    # Sort by newest first with pagination
+    pagination = query.order_by(Ticket.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    tickets = pagination.items
     
     # Get all admins for filter dropdown
     admins = User.query.all()
     
-    return render_template('dashboard.html', tickets=tickets, admins=admins)
+    return render_template('dashboard.html', tickets=tickets, admins=admins, pagination=pagination, per_page=per_page)
 
 
 @app.route('/admin/ticket/<int:ticket_id>', methods=['GET', 'POST'])
@@ -270,6 +301,7 @@ def dashboard():
 def ticket_detail(ticket_id):
     """View and edit ticket details"""
     ticket = Ticket.query.get_or_404(ticket_id)
+    comments = Comment.query.filter_by(ticket_id=ticket_id).order_by(Comment.created_at.desc()).all()
     
     if request.method == 'POST':
         action = request.form.get('action')
@@ -309,13 +341,25 @@ def ticket_detail(ticket_id):
             db.session.commit()
             flash('Ticket eliminato con successo!', 'success')
             return redirect(url_for('dashboard'))
+
+        elif action == 'add_comment':
+            author_name = request.form.get('author_name', '').strip()
+            body = request.form.get('comment_body', '').strip()
+
+            if not author_name or not body:
+                flash('Nome e commento sono obbligatori.', 'danger')
+            else:
+                comment = Comment(ticket_id=ticket.id, author_name=author_name, body=body)
+                db.session.add(comment)
+                db.session.commit()
+                flash('Commento aggiunto con successo.', 'success')
         
         return redirect(url_for('ticket_detail', ticket_id=ticket_id))
     
     # Get all admins for assignment dropdown
     admins = User.query.all()
     
-    return render_template('ticket_detail.html', ticket=ticket, admins=admins)
+    return render_template('ticket_detail.html', ticket=ticket, admins=admins, comments=comments)
 
 
 # ==================== DATABASE INITIALIZATION ====================

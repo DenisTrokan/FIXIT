@@ -12,7 +12,7 @@
                 </h4>
             </div>
             <div class="card-body p-4">
-                <form method="POST" action="{{ url_for('new_mezzi') }}">
+                <form method="POST" action="{{ url_for('new_mezzi') }}" enctype="multipart/form-data">
                     <!-- Requester Name -->
                     <div class="mb-3">
                         <label for="requester_name" class="form-label">
@@ -63,13 +63,26 @@
                     </div>
 
                     <!-- Description -->
-                    <div class="mb-4">
+                    <div class="mb-3">
                         <label for="description" class="form-label">
                             Descrizione Dettagliata del Problema <span class="text-danger">*</span>
                         </label>
                         <textarea class="form-control" id="description" name="description" rows="5" 
                                   placeholder="Descrivi in dettaglio il problema riscontrato..." required></textarea>
                         <div class="form-text">Fornisci quanti più dettagli possibili per aiutarci a risolvere il problema.</div>
+                    </div>
+
+                    <!-- Image Upload -->
+                    <div class="mb-4">
+                        <label for="image" class="form-label">
+                            Allega Foto (Facoltativo)
+                        </label>
+                        <input type="file" class="form-control" id="image" name="image" 
+                               accept=".jpg,.jpeg,.png">
+                        <div class="form-text">
+                            Formati supportati: JPG, JPEG, PNG (Max 16MB). 
+                            Allega una foto se può aiutare a comprendere meglio il problema.
+                        </div>
                     </div>
 
                     <!-- Buttons -->
