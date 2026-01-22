@@ -3,7 +3,7 @@ Script per popolare il database con dati di esempio
 Esegui: python seed_data.py
 """
 
-from app import app, db, User, Ticket
+from app import app, db, User, Ticket, Comment
 from datetime import datetime, timedelta
 import random
 
@@ -60,6 +60,19 @@ def seed_tickets(users):
     priorities = ["BASSA", "MEDIA", "ALTA"]
     statuses = ["NUOVO", "IN_LAVORAZIONE", "RISOLTO"]
     
+    # Commenti di esempio
+    sample_comments = [
+        "Verificato il sistema: tutto funziona correttamente",
+        "Intervento in corso. Parti già ordinate.",
+        "Problema risolto. Verifica finale completata.",
+        "In attesa di ricambi. Previsto arrivo domani.",
+        "Cliente informato. Procediamo con la riparazione.",
+        "Diagnostica completata. Rischio basso.",
+        "Sostituzione componente eseguita con successo.",
+        "Ritardo dovuto alla disponibilità ricambi.",
+        "Tutte le verifiche sono state superate."
+    ]
+    
     tickets_data = [
         # Ticket MEZZO
         {
@@ -80,7 +93,11 @@ def seed_tickets(users):
             'mileage_hours': '3.450 Km',
             'anomaly_category': 'Perdite Liquidi',
             'description': 'Notata perdita di olio idraulico sotto il mezzo. Chiazza evidente nel piazzale di stazionamento.',
-            'status': 'IN_LAVORAZIONE'
+            'status': 'IN_LAVORAZIONE',
+            'comments': [
+                ('mario.rossi', 'Ho controllato il livello dell\'olio. Sotto il minimo.'),
+                ('luca.bianchi', 'Identificata perdita dalla guarnizione cilindro. Procedo con la sostituzione.')
+            ]
         },
         {
             'type': 'MEZZO',
@@ -90,7 +107,12 @@ def seed_tickets(users):
             'mileage_hours': '890 Km',
             'anomaly_category': 'Pneumatici',
             'description': 'Pneumatico anteriore destro con usura eccessiva e possibile foratura lenta.',
-            'status': 'RISOLTO'
+            'status': 'RISOLTO',
+            'comments': [
+                ('giulia.verdi', 'Pneumatico sostituito con uno nuovo di qualità superiore.'),
+                ('mario.rossi', 'Verifica completata. Tutto in ordine.'),
+                ('admin', 'Ticket chiuso. Cliente soddisfatto.')
+            ]
         },
         {
             'type': 'MEZZO',
@@ -110,7 +132,10 @@ def seed_tickets(users):
             'mileage_hours': '5.670 Km',
             'anomaly_category': 'Rumori Insoliti',
             'description': 'Rumore metallico proveniente dal vano motore durante l\'accelerazione.',
-            'status': 'IN_LAVORAZIONE'
+            'status': 'IN_LAVORAZIONE',
+            'comments': [
+                ('luca.bianchi', 'Rumore identificato: cinghia di distribuzione usurata.'),
+            ]
         },
         
         # Ticket TECNICO
@@ -130,7 +155,11 @@ def seed_tickets(users):
             'title': 'Perdita acqua nel locale caldaia',
             'priority': 'ALTA',
             'description': 'Rilevata perdita d\'acqua nel locale caldaia. Necessario intervento immediato per evitare danni maggiori.',
-            'status': 'IN_LAVORAZIONE'
+            'status': 'IN_LAVORAZIONE',
+            'comments': [
+                ('mario.rossi', 'Isolato il tubo interessato. Procedura di drenaggio in corso.'),
+                ('giulia.verdi', 'Ricambio ordinato. Disponibile domani mattina.')
+            ]
         },
         {
             'type': 'TECNICO',
@@ -139,7 +168,12 @@ def seed_tickets(users):
             'title': 'Installazione software contabilità',
             'priority': 'BASSA',
             'description': 'Richiesta installazione nuovo software di contabilità su 3 postazioni ufficio amministrativo.',
-            'status': 'RISOLTO'
+            'status': 'RISOLTO',
+            'comments': [
+                ('luca.bianchi', 'Download del software completato.'),
+                ('admin', 'Installazione completata su tutte e 3 le postazioni. Formazione fornita al personale.'),
+                ('giulia.verdi', 'Verificato il corretto funzionamento. Ticket chiuso.')
+            ]
         },
         {
             'type': 'TECNICO',
@@ -157,7 +191,11 @@ def seed_tickets(users):
             'title': 'Illuminazione area produzione insufficiente',
             'priority': 'MEDIA',
             'description': 'Alcuni neon nella zona produzione sono bruciati. Necessaria sostituzione per garantire sicurezza.',
-            'status': 'IN_LAVORAZIONE'
+            'status': 'IN_LAVORAZIONE',
+            'comments': [
+                ('mario.rossi', 'Identificati 4 neon fuori servizio nella zona B.'),
+                ('luca.bianchi', 'Ordinati i ricambi. Installazione prevista per domani.')
+            ]
         }
     ]
     
@@ -202,6 +240,19 @@ def seed_tickets(users):
             ticket.closed_at = ticket.started_at + timedelta(hours=random.randint(4, 48))
         
         db.session.add(ticket)
+        db.session.flush()  # Flush per ottenere il ticket.id
+        
+        # Aggiungi commenti se presenti
+        if 'comments' in ticket_data:
+            for author_name, comment_text in ticket_data['comments']:
+                comment = Comment(
+                    ticket_id=ticket.id,
+                    author_name=author_name,
+                    body=comment_text,
+                    created_at=ticket.created_at + timedelta(hours=random.randint(1, 24))
+                )
+                db.session.add(comment)
+        
         created_tickets.append(ticket)
         
         status_emoji = "🆕" if ticket.status == "NUOVO" else "⚙️" if ticket.status == "IN_LAVORAZIONE" else "✅"

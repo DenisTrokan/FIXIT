@@ -66,10 +66,6 @@
                             <!-- TECNICO Specific Fields -->
                             <div class="row mb-3">
                                 <div class="col-md-6">
-                                    <strong>Reparto:</strong>
-                                    <p>{{ ticket.department }}</p>
-                                </div>
-                                <div class="col-md-6">
                                     <strong>Priorità:</strong>
                                     <p>
                                         {% if ticket.priority == 'BASSA' %}
@@ -110,6 +106,51 @@
                                 </div>
                             </div>
                         {% endif %}
+                    </div>
+                </div>
+
+                <!-- Comments -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-chat-dots me-2"></i>Commenti</h5>
+                        <span class="badge bg-primary">{{ comments|length }} commenti</span>
+                    </div>
+                    <div class="card-body">
+                        {% if comments %}
+                            <div class="list-group mb-4">
+                                {% for comment in comments %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong>{{ comment.author_name }}</strong>
+                                                <div class="text-muted small">{{ comment.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                                            </div>
+                                        </div>
+                                        <p class="mb-0 mt-2">{{ comment.body }}</p>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted">Nessun commento presente.</p>
+                        {% endif %}
+
+                        <hr>
+                        <form method="POST" action="{{ url_for('ticket_detail', ticket_id=ticket.id) }}">
+                            <input type="hidden" name="action" value="add_comment">
+                            <div class="mb-3">
+                                <label for="author_name" class="form-label">Il tuo nome</label>
+                                <input type="text" class="form-control" id="author_name" name="author_name" value="{{ session.get('username', '') }}" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label for="comment_body" class="form-label">Commento</label>
+                                <textarea class="form-control" id="comment_body" name="comment_body" rows="3" placeholder="Aggiungi un aggiornamento per gli altri operatori..." required></textarea>
+                            </div>
+                            <div class="d-grid d-md-flex justify-content-md-end">
+                                <button type="submit" class="btn btn-outline-primary">
+                                    <i class="bi bi-chat-left-text me-1"></i>Aggiungi commento
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -209,7 +250,7 @@
                 <!-- Delete Card -->
                 <div class="card border-danger">
                     <div class="card-header bg-danger text-white">
-                        <h6 class="mb-0"><i class="bi bi-trash me-2"></i>Zona Pericolosa</h6>
+                        <h6 class="mb-0"><i class="bi bi-trash me-2"></i>Elimina Ticket</h6>
                     </div>
                     <div class="card-body">
                         <p class="small text-muted mb-3">
