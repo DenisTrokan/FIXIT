@@ -4,7 +4,7 @@ Sistema MVP per la gestione di ticket aziendali con focus su interventi tecnici 
 
 ## 🚀 Caratteristiche
 
-- **Doppio tipo di ticket**: Intervento Mezzi e Intervento Tecnico
+- **Doppio tipo di ticket**: Intervento Mezzi e Intervento Generico
 - **Interfaccia pubblica** per la creazione di segnalazioni
 - **Back-office protetto** per la gestione amministrativa
 - **Sistema di priorità e assegnazione** ticket
@@ -68,7 +68,7 @@ L'applicazione sarà disponibile all'indirizzo:
 Accessibile a tutti senza autenticazione:
 - Homepage: http://localhost:5000
 - Form Intervento Mezzi: http://localhost:5000/new/mezzi
-- Form Intervento Tecnico: http://localhost:5000/new/tecnico
+- Form Intervento Generico: http://localhost:5000/new/tecnico
 
 ### Area Admin
 Richiede autenticazione:
@@ -95,7 +95,7 @@ FIXIT/
 │   ├── base.html              # Template base
 │   ├── index.html             # Homepage pubblica
 │   ├── form_mezzi.html        # Form intervento mezzi
-│   ├── form_tecnico.html      # Form intervento tecnico
+│   ├── form_tecnico.html      # Form intervento generico
 │   ├── login.html             # Login admin
 │   ├── dashboard.html         # Dashboard admin
 │   └── ticket_detail.html     # Dettaglio ticket
@@ -117,7 +117,7 @@ FIXIT/
 - Selezione categoria anomalia predefinita
 - Descrizione dettagliata problema
 
-#### 3. Form Intervento Tecnico
+#### 3. Form Intervento Generico
 - Informazioni richiedente e reparto
 - Selezione priorità (Bassa/Media/Alta)
 - Upload foto opzionale
