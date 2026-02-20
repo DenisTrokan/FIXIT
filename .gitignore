@@ -1,0 +1,35 @@
+# Database (contiene dati utenti/ticket)
+*.db
+tickets.db
+
+# Upload utenti (immagini ticket)
+static/uploads/*
+!static/uploads/.gitkeep
+
+# Ambiente virtuale Python
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# File configurazione con segreti
+.env
+config_local.py
+*.key
+*.pem
+
+# File IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# File di sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# Instance folder (SQLite production)
+instance/
