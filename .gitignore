@@ -36,3 +36,4 @@ Thumbs.db
 
 # Instance folder (SQLite production)
 instance/
+instance/tickets.db
