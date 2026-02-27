@@ -20,6 +20,7 @@
                     </div>
                     <div class="card-body">
                         <form method="POST" action="{{ url_for('manage_users') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="action" value="create">
                             <div class="mb-3">
                                 <label class="form-label" for="username">Username</label>
@@ -85,6 +86,7 @@
                                                         </button>
                                                         {% if user.id != session.get('user_id') %}
                                                         <form method="POST" action="{{ url_for('manage_users') }}" onsubmit="return confirm('Eliminare questo utente?');">
+                                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                             <input type="hidden" name="action" value="delete">
                                                             <input type="hidden" name="user_id" value="{{ user.id }}">
                                                             <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -95,6 +97,7 @@
                                                     </div>
                                                     <div class="collapse mt-2" id="pw-{{ user.id }}">
                                                         <form method="POST" action="{{ url_for('manage_users') }}" class="d-flex gap-2">
+                                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                             <input type="hidden" name="action" value="reset_password">
                                                             <input type="hidden" name="user_id" value="{{ user.id }}">
                                                             <input type="password" name="new_password" class="form-control" placeholder="Nuova password" required>

@@ -1,7 +1,10 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -19,11 +22,50 @@ app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg'}
 
+# Session security settings
+_secure_cookie = os.getenv('SESSION_COOKIE_SECURE', 'True').lower() in ('true', '1', 'yes')
+app.config['SESSION_COOKIE_SECURE'] = _secure_cookie
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
+
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Initialize database
 db = SQLAlchemy(app)
+
+# CSRF protection
+csrf = CSRFProtect(app)
+
+# Rate limiting (in-memory storage; for multi-worker/production deployments
+# set RATELIMIT_STORAGE_URI=redis://... in environment and update storage_uri)
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri=os.getenv('RATELIMIT_STORAGE_URI', 'memory://'),
+)
+
+
+# ==================== SECURITY HEADERS ====================
+
+@app.after_request
+def set_security_headers(response):
+    """Add HTTP security headers to every response"""
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+        "font-src 'self' https://cdn.jsdelivr.net; "
+        "img-src 'self' data:; "
+        "frame-ancestors 'none'"
+    )
+    return response
 
 # ==================== MODELS ====================
 
@@ -238,6 +280,7 @@ def new_tecnico():
 # ==================== ADMIN ROUTES ====================
 
 @app.route('/admin/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def login():
     """Admin login"""
     if request.method == 'POST':
@@ -325,6 +368,8 @@ def manage_users():
 
             if not username or not password:
                 flash('Username e password sono obbligatori.', 'danger')
+            elif len(password) < 8:
+                flash('La password deve avere almeno 8 caratteri.', 'danger')
             elif User.query.filter_by(username=username).first():
                 flash('Username già esistente.', 'warning')
             else:
@@ -352,6 +397,8 @@ def manage_users():
             new_password = request.form.get('new_password', '').strip()
             if not new_password:
                 flash('La nuova password è obbligatoria.', 'danger')
+            elif len(new_password) < 8:
+                flash('La password deve avere almeno 8 caratteri.', 'danger')
             else:
                 user = User.query.get(int(user_id)) if user_id else None
                 if not user:
@@ -455,12 +502,18 @@ def init_db():
         # Check if admin user exists
         admin = User.query.filter_by(username='admin').first()
         if not admin:
+            default_password = os.getenv('ADMIN_PASSWORD')
+            if not default_password:
+                raise RuntimeError(
+                    'ADMIN_PASSWORD environment variable must be set before first run. '
+                    'Add it to your .env file: ADMIN_PASSWORD=<strong-password-here>'
+                )
             admin = User(username='admin')
-            admin.set_password('admin123')
+            admin.set_password(default_password)
             admin.is_superuser = True
             db.session.add(admin)
             db.session.commit()
-            print('Default admin user created: admin/admin123')
+            print('Default admin user created: admin')
         else:
             # Ensure admin retains superuser status
             if not admin.is_superuser:
