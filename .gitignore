@@ -20,6 +20,9 @@ config_local.py
 *.key
 *.pem
 
+# File con credenziali in chiaro - NON tracciare
+CREDENZIALI.md
+
 # File IDE
 .vscode/
 .idea/
