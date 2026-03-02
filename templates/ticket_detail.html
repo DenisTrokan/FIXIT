@@ -134,6 +134,7 @@
 
                         <hr>
                         <form method="POST" action="{{ url_for('ticket_detail', ticket_id=ticket.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="action" value="add_comment">
                             <div class="mb-3">
                                 <label for="author_name" class="form-label">Il tuo nome</label>
@@ -195,6 +196,7 @@
                         <hr>
 
                         <form method="POST" action="{{ url_for('ticket_detail', ticket_id=ticket.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="action" value="update_status">
                             <label class="form-label">Cambia Status:</label>
                             <select name="status" class="form-select mb-2">
@@ -231,6 +233,7 @@
                             </div>
                         </div>
                         <form method="POST" action="{{ url_for('ticket_detail', ticket_id=ticket.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="action" value="update_priority">
                             <label class="form-label">Modifica Priorità:</label>
                             <select name="priority" class="form-select mb-2">
@@ -264,6 +267,7 @@
                         </div>
 
                         <form method="POST" action="{{ url_for('ticket_detail', ticket_id=ticket.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="action" value="assign">
                             <label class="form-label">Assegna a:</label>
                             <select name="assigned_to_id" class="form-select mb-2">
@@ -293,6 +297,7 @@
                         </p>
                         <form method="POST" action="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" 
                               onsubmit="return confirm('Sei sicuro di voler eliminare questo ticket? Questa azione è irreversibile.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="action" value="delete">
                             <button type="submit" class="btn btn-danger w-100">
                                 <i class="bi bi-trash me-1"></i>Elimina Ticket
