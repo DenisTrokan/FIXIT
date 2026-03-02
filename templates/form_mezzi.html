@@ -13,6 +13,7 @@
             </div>
             <div class="card-body p-4">
                 <form method="POST" action="{{ url_for('new_mezzi') }}" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <!-- Requester Name -->
                     <div class="mb-3">
                         <label for="requester_name" class="form-label">
