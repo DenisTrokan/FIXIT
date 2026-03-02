@@ -139,7 +139,7 @@ Gunicorn (Green Unicorn) è un server WSGI HTTP per applicazioni Python. A diffe
 ```bash
 cd /home/fixit/FIXIT
 source venv/bin/activate
-gunicorn wsgi:app -b 0.0.0.0:8000 -w 3
+gunicorn wsgi:app -b 0.0.0.0:8000 -w 1
 ```
 
 L'app sarà raggiungibile su `http://<IP-SERVER>:8000`
@@ -149,7 +149,7 @@ L'app sarà raggiungibile su `http://<IP-SERVER>:8000`
 | Parametro | Valore | Descrizione |
 |-----------|--------|-------------|
 | `-b 0.0.0.0:8000` | Bind address | Ascolta su tutte le interfacce, porta 8000 |
-| `-w 3` | Workers | Numero di processi (regola: `2 × CPU + 1`) |
+| `-w 1` | Workers | Con SQLite consigliato 1 worker per evitare lock in scrittura |
 | `--timeout 120` | Timeout | Secondi prima di terminare un worker lento |
 | `--access-logfile -` | Log accessi | Stampa log su stdout (catturato da systemd) |
 | `--error-logfile -` | Log errori | Stampa errori su stdout |
@@ -159,11 +159,13 @@ L'app sarà raggiungibile su `http://<IP-SERVER>:8000`
 ```bash
 gunicorn wsgi:app \
     --bind 0.0.0.0:8000 \
-    --workers 3 \
+    --workers 1 \
     --timeout 120 \
     --access-logfile - \
     --error-logfile -
 ```
+
+> Nota: con database SQLite è preferibile usare `--workers 1` per stabilità. Se in futuro passi a PostgreSQL/MySQL puoi aumentare i worker.
 
 ---
 
@@ -194,7 +196,7 @@ WorkingDirectory=/home/fixit/FIXIT
 Environment="PATH=/home/fixit/FIXIT/venv/bin"
 ExecStart=/home/fixit/FIXIT/venv/bin/gunicorn wsgi:app \
     --bind 0.0.0.0:8000 \
-    --workers 3 \
+    --workers 1 \
     --timeout 120 \
     --access-logfile - \
     --error-logfile -
