@@ -230,6 +230,19 @@ Chiudi tutte le connessioni al database e riavvia l'applicazione.
 ### Immagini non visualizzate
 Verifica che la cartella `static/uploads` esista e abbia i permessi corretti.
 
+## 🌐 Deploy in Produzione
+
+Per il deploy su AWS Lightsail (o altro server Linux) con Gunicorn, systemd e cron, consulta la guida completa:
+
+👉 **[DEPLOY.md](DEPLOY.md)** — Guida al deploy in produzione
+
+La guida include:
+- Configurazione Gunicorn (server WSGI)
+- Servizio systemd per avvio automatico e auto-restart
+- Cron job per health check ogni 5 minuti
+- Istruzioni per aggiornamento e troubleshooting
+- Percorso upgrade a HTTPS (nginx + Let's Encrypt)
+
 ## 📧 Supporto
 
 Per problemi o domande, contatta il team di sviluppo.
