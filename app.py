@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -126,6 +126,14 @@ def superuser_required(f):
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
+
+
+# ==================== MONITORING ROUTES ====================
+
+@app.route('/health')
+def health():
+    """Heartbeat endpoint for uptime monitoring (Zabbix / load-balancer)."""
+    return jsonify({'status': 'ok', 'timestamp': datetime.utcnow().isoformat() + 'Z'}), 200
 
 
 # ==================== PUBLIC ROUTES ====================

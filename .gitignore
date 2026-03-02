@@ -33,3 +33,7 @@ Thumbs.db
 
 # Instance folder (SQLite production)
 instance/
+
+# Gunicorn runtime files (created when run without root)
+logs/
+fixit.pid

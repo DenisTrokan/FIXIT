@@ -1,0 +1,31 @@
+[Unit]
+Description=FIXIT Ticket Management System (Gunicorn)
+After=network.target
+
+[Service]
+# --- Change these to match your deployment ---
+User=fixit
+Group=fixit
+WorkingDirectory=/opt/fixit
+Environment="PATH=/opt/fixit/venv/bin"
+EnvironmentFile=/opt/fixit/.env
+
+ExecStart=/opt/fixit/venv/bin/gunicorn -c gunicorn.conf.py wsgi:app
+ExecReload=/bin/kill -s HUP $MAINPID
+
+# Restart automatically if the process crashes
+Restart=on-failure
+RestartSec=10s
+
+# Logging (journald captures stdout/stderr)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fixit
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

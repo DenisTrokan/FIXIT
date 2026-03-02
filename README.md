@@ -104,7 +104,103 @@ FIXIT/
     └── uploads/               # Immagini caricate (creata automaticamente)
 ```
 
-## 🎨 Funzionalità
+## 🚀 Deployment in Produzione
+
+### Requisiti aggiuntivi
+
+```bash
+pip install -r requirements.txt   # include gunicorn
+```
+
+### 1. Avvio con Gunicorn (WSGI server)
+
+Non usare il server Flask nativo in produzione. Usa Gunicorn:
+
+```bash
+gunicorn -c gunicorn.conf.py wsgi:app
+```
+
+Oppure in background come daemon:
+
+```bash
+gunicorn -c gunicorn.conf.py wsgi:app --daemon
+```
+
+### 2. Gestione con systemd
+
+Copia e abilita il servizio:
+
+```bash
+sudo cp fixit.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now fixit
+```
+
+Comandi utili:
+
+```bash
+sudo systemctl status fixit
+sudo systemctl restart fixit
+sudo journalctl -u fixit -f
+```
+
+### 3. Cron — watchdog e avvio automatico
+
+Installa le voci cron per controllare che l'app sia in esecuzione ogni 5 minuti:
+
+```bash
+sudo crontab -u fixit -e
+# Incolla il contenuto di crontab.example
+```
+
+Il file `scripts/check_and_start.sh` verifica il processo e lo avvia se non è attivo; controlla anche l'endpoint `/health`.
+
+### 4. Monitoraggio con Zabbix (agent + SNMP trap)
+
+#### 4a. Zabbix Agent (HTTP + processo)
+
+```bash
+sudo cp zabbix/userparameter_fixit.conf /etc/zabbix/zabbix_agentd.d/
+sudo systemctl restart zabbix-agent
+```
+
+Configura nel server Zabbix gli item con le chiavi:
+
+| Key | Tipo | Trigger consigliato |
+|---|---|---|
+| `fixit.http.status` | Numeric | `<> 200` |
+| `fixit.process.running` | Numeric | `= 0` |
+| `fixit.process.workers` | Numeric | `< 2` |
+
+#### 4b. SNMP Trap verso Zabbix
+
+Configura le variabili in `.env` e usa lo script `scripts/snmp_trap.sh`:
+
+```bash
+# Invia un heartbeat manuale
+ZABBIX_HOST=192.168.1.10 bash scripts/snmp_trap.sh heartbeat
+
+# Oppure aggiungi il cron (vedi crontab.example):
+# * * * * * /opt/fixit/scripts/snmp_trap.sh heartbeat
+```
+
+### 5. Endpoint di Health Check
+
+L'applicazione espone un endpoint di heartbeat:
+
+```
+GET /health
+→ 200 {"status": "ok", "timestamp": "2026-01-01T00:00:00Z"}
+```
+
+Usalo come:
+- **Zabbix HTTP check** — `fixit.http.status`
+- **Load balancer health probe**
+- **Uptime monitoring** (UptimeRobot, Nagios, ecc.)
+
+---
+
+
 
 ### Area Pubblica
 
