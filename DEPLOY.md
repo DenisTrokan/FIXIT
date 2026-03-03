@@ -74,7 +74,9 @@ sudo su - fixit
 ### 2. Clona o copia il progetto
 
 ```bash
-cd /home/fixit
+sudo mkdir -p /opt/fixit
+sudo chown fixit:fixit /opt/fixit
+cd /opt/fixit
 git clone <URL-DEL-TUO-REPO> FIXIT
 cd FIXIT
 ```
@@ -83,7 +85,7 @@ Oppure copia i file con `scp`:
 
 ```bash
 # Dal PC Windows (PowerShell):
-scp -r .\* ubuntu@<IP-SERVER>:/home/fixit/FIXIT/
+scp -r .\* ubuntu@<IP-SERVER>:/opt/fixit/FIXIT/
 ```
 
 ### 3. Crea l'ambiente virtuale e installa le dipendenze
@@ -137,7 +139,7 @@ Gunicorn (Green Unicorn) è un server WSGI HTTP per applicazioni Python. A diffe
 ### Avvio rapido
 
 ```bash
-cd /home/fixit/FIXIT
+cd /opt/fixit/FIXIT
 source venv/bin/activate
 gunicorn wsgi:app -b 0.0.0.0:8000 -w 1
 ```
@@ -192,9 +194,9 @@ After=network.target
 [Service]
 User=fixit
 Group=fixit
-WorkingDirectory=/home/fixit/FIXIT
-Environment="PATH=/home/fixit/FIXIT/venv/bin"
-ExecStart=/home/fixit/FIXIT/venv/bin/gunicorn wsgi:app \
+WorkingDirectory=/opt/fixit/FIXIT
+Environment="PATH=/opt/fixit/FIXIT/venv/bin"
+ExecStart=/opt/fixit/FIXIT/venv/bin/gunicorn wsgi:app \
     --bind 0.0.0.0:8000 \
     --workers 1 \
     --timeout 120 \
@@ -238,7 +240,7 @@ curl http://localhost:8000
 Crea lo script di health check:
 
 ```bash
-sudo nano /home/fixit/check_fixit.sh
+sudo nano /opt/fixit/check_fixit.sh
 ```
 
 Contenuto:
@@ -248,17 +250,17 @@ Contenuto:
 # Health check per FIXIT - riavvia se non risponde
 
 if ! curl -sf http://localhost:8000 > /dev/null 2>&1; then
-    echo "$(date) - FIXIT non risponde, riavvio in corso..." >> /home/fixit/fixit_monitor.log
+    echo "$(date) - FIXIT non risponde, riavvio in corso..." >> /opt/fixit/fixit_monitor.log
     sudo systemctl restart fixit
 else
-    echo "$(date) - FIXIT OK" >> /home/fixit/fixit_monitor.log
+    echo "$(date) - FIXIT OK" >> /opt/fixit/fixit_monitor.log
 fi
 ```
 
 Rendi eseguibile:
 
 ```bash
-sudo chmod +x /home/fixit/check_fixit.sh
+sudo chmod +x /opt/fixit/check_fixit.sh
 ```
 
 ### 2. Configura il cron job
@@ -271,10 +273,10 @@ Aggiungi queste righe:
 
 ```cron
 # Health check FIXIT ogni 5 minuti
-*/5 * * * * /home/fixit/check_fixit.sh
+*/5 * * * * /opt/fixit/check_fixit.sh
 
 # Pulizia log monitor ogni settimana (domenica alle 03:00)
-0 3 * * 0 truncate -s 0 /home/fixit/fixit_monitor.log
+0 3 * * 0 truncate -s 0 /opt/fixit/fixit_monitor.log
 ```
 
 ### 3. Verifica i cron job
@@ -312,7 +314,7 @@ sudo journalctl -u fixit --since today
 
 ```bash
 # 1. Vai nella cartella del progetto
-cd /home/fixit/FIXIT
+cd /opt/fixit/FIXIT
 
 # 2. Aggiorna il codice
 git pull origin main
@@ -373,10 +375,10 @@ python -c "from waitress import serve; from wsgi import app; serve(app, host='0.
 sudo journalctl -u fixit -n 50
 
 # Verifica che il virtual environment sia corretto
-/home/fixit/FIXIT/venv/bin/python -c "import flask; print(flask.__version__)"
+/opt/fixit/FIXIT/venv/bin/python -c "import flask; print(flask.__version__)"
 
 # Testa manualmente
-cd /home/fixit/FIXIT
+cd /opt/fixit/FIXIT
 source venv/bin/activate
 gunicorn wsgi:app -b 0.0.0.0:8000
 ```
@@ -397,7 +399,7 @@ sudo kill <PID>
 
 ```bash
 # Assicurati che l'utente fixit possieda tutti i file
-sudo chown -R fixit:fixit /home/fixit/FIXIT
+sudo chown -R fixit:fixit /opt/fixit/FIXIT
 ```
 
 ### Database locked
@@ -414,7 +416,7 @@ sudo systemctl restart fixit
 sudo systemctl status cron
 
 # Controlla il log
-cat /home/fixit/fixit_monitor.log
+cat /opt/fixit/fixit_monitor.log
 ```
 
 ---
@@ -449,7 +451,7 @@ server {
     }
 
     location /static {
-        alias /home/fixit/FIXIT/static;
+        alias /opt/fixit/FIXIT/static;
     }
 }
 ```
