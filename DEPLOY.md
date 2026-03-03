@@ -64,50 +64,32 @@ Dalla console AWS Lightsail:
 
 ## Installazione dell'Applicazione
 
-### 1. Crea l'utente dedicato `fixit` e la directory base
-
-> ⚠️ **Importante**: tutta la gestione dell'applicazione (clone, venv, configurazione, avvio manuale) deve essere eseguita come utente `fixit`, **non** come `ubuntu`. Questo limita i permessi del processo e separa le responsabilità.
-
-Esegui questi comandi come `ubuntu` (l'utente SSH predefinito di Lightsail):
+### 1. Crea la directory base del progetto
 
 ```bash
-# Crea l'utente fixit senza password interattiva
-sudo useradd -m -s /bin/bash fixit
-
-# Crea la directory base e assegnala all'utente fixit
 sudo mkdir -p /opt/fixit
-sudo chown fixit:fixit /opt/fixit
+cd /opt/fixit
 ```
 
 ### 2. Clona o copia il progetto
 
-Passa all'utente `fixit` e clona il repository:
-
 ```bash
-sudo su - fixit
-cd /opt/fixit
 git clone <URL-DEL-TUO-REPO> FIXIT
+cd FIXIT
 ```
 
-Oppure, se copi i file con `scp`, prima fai l'upload come `ubuntu` e poi correggi i permessi:
+Oppure copia i file con `scp`:
 
 ```bash
-# Dal PC Windows (PowerShell), come ubuntu:
-scp -r .\* ubuntu@<IP-SERVER>:/tmp/fixit_upload/
-
-# Sul server, come ubuntu:
-sudo mv /tmp/fixit_upload /opt/fixit/FIXIT
-sudo chown -R fixit:fixit /opt/fixit/FIXIT
+# Dal PC Windows (PowerShell):
+scp -r .\* ubuntu@<IP-SERVER>:/opt/fixit/FIXIT/
 ```
 
 ### 3. Crea l'ambiente virtuale e installa le dipendenze
 
 > **Nota**: il venv viene creato in `/opt/fixit/venv` (fuori dalla repo), così rimane separato dal codice e non viene sovrascritto da `git pull`.
 
-I comandi seguenti vanno eseguiti come utente `fixit` (sei già passato con `sudo su - fixit` al passo precedente):
-
 ```bash
-# (come utente fixit)
 cd /opt/fixit
 python3 -m venv venv
 source /opt/fixit/venv/bin/activate
@@ -118,7 +100,6 @@ pip install -r requirements.txt
 ### 4. Configura le variabili d'ambiente
 
 ```bash
-# (come utente fixit, nella cartella /opt/fixit/FIXIT)
 cp .env.example .env
 nano .env
 ```
@@ -135,7 +116,6 @@ SESSION_COOKIE_SECURE=False
 ### 5. Crea le directory necessarie
 
 ```bash
-# (come utente fixit, nella cartella /opt/fixit/FIXIT)
 mkdir -p static/uploads
 mkdir -p instance
 ```
@@ -143,19 +123,12 @@ mkdir -p instance
 ### 6. Test rapido — verifica che l'app parta
 
 ```bash
-# (come utente fixit)
 source /opt/fixit/venv/bin/activate
 cd /opt/fixit/FIXIT
 python wsgi.py
 ```
 
 Se funziona (nessun errore), interrompi con `Ctrl+C`.
-
-Torna all'utente `ubuntu` per i passi successivi (setup systemd):
-
-```bash
-exit
-```
 
 ---
 
@@ -167,10 +140,7 @@ Gunicorn (Green Unicorn) è un server WSGI HTTP per applicazioni Python. A diffe
 
 ### Avvio rapido
 
-Questo va eseguito come utente `fixit`:
-
 ```bash
-sudo su - fixit
 cd /opt/fixit/FIXIT
 source /opt/fixit/venv/bin/activate
 gunicorn wsgi:app -b 0.0.0.0:8000 -w 1
@@ -224,8 +194,8 @@ Description=FIXIT Ticketing System (Gunicorn)
 After=network.target
 
 [Service]
-User=fixit
-Group=fixit
+User=ubuntu
+Group=ubuntu
 WorkingDirectory=/opt/fixit/FIXIT
 Environment="PATH=/opt/fixit/venv/bin"
 ExecStart=/opt/fixit/venv/bin/gunicorn wsgi:app \
@@ -345,26 +315,20 @@ sudo journalctl -u fixit --since today
 ### Aggiornamento dell'applicazione
 
 ```bash
-# 1. Passa all'utente fixit per aggiornare il codice
-sudo su - fixit
-
-# 2. Vai nella cartella del progetto
+# 1. Vai nella cartella del progetto
 cd /opt/fixit/FIXIT
 
-# 3. Aggiorna il codice
+# 2. Aggiorna il codice
 git pull origin main
 
-# 4. Attiva il venv e aggiorna le dipendenze
+# 3. Attiva il venv e aggiorna le dipendenze
 source /opt/fixit/venv/bin/activate
 pip install -r requirements.txt
 
-# 5. Torna all'utente ubuntu
-exit
-
-# 6. Riavvia il servizio
+# 4. Riavvia il servizio
 sudo systemctl restart fixit
 
-# 7. Verifica
+# 5. Verifica
 sudo systemctl status fixit
 ```
 
@@ -415,8 +379,7 @@ sudo journalctl -u fixit -n 50
 # Verifica che il virtual environment sia corretto
 /opt/fixit/venv/bin/python -c "import flask; print(flask.__version__)"
 
-# Testa manualmente come utente fixit
-sudo su - fixit
+# Testa manualmente
 cd /opt/fixit/FIXIT
 source /opt/fixit/venv/bin/activate
 gunicorn wsgi:app -b 0.0.0.0:8000
@@ -437,9 +400,8 @@ sudo kill <PID>
 ### Permessi negati sui file
 
 ```bash
-# Assicurati che l'utente fixit possieda tutta la directory /opt/fixit
-# (include sia il codice che il venv e il database)
-sudo chown -R fixit:fixit /opt/fixit
+# Assicurati che l'utente ubuntu possieda tutta la directory /opt/fixit
+sudo chown -R ubuntu:ubuntu /opt/fixit
 ```
 
 ### Database locked
