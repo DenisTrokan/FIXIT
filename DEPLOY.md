@@ -90,9 +90,13 @@ scp -r .\* ubuntu@<IP-SERVER>:/opt/fixit/FIXIT/
 
 ### 3. Crea l'ambiente virtuale e installa le dipendenze
 
+> **Nota**: il venv viene creato in `/opt/fixit/venv` (fuori dalla repo), così rimane separato dal codice e non viene sovrascritto da `git pull`.
+
 ```bash
+cd /opt/fixit
 python3 -m venv venv
-source venv/bin/activate
+source /opt/fixit/venv/bin/activate
+cd FIXIT
 pip install -r requirements.txt
 ```
 
@@ -122,7 +126,7 @@ mkdir -p instance
 ### 6. Test rapido — verifica che l'app parta
 
 ```bash
-source venv/bin/activate
+source /opt/fixit/venv/bin/activate
 python wsgi.py
 ```
 
@@ -140,7 +144,7 @@ Gunicorn (Green Unicorn) è un server WSGI HTTP per applicazioni Python. A diffe
 
 ```bash
 cd /opt/fixit/FIXIT
-source venv/bin/activate
+source /opt/fixit/venv/bin/activate
 gunicorn wsgi:app -b 0.0.0.0:8000 -w 1
 ```
 
@@ -195,8 +199,8 @@ After=network.target
 User=fixit
 Group=fixit
 WorkingDirectory=/opt/fixit/FIXIT
-Environment="PATH=/opt/fixit/FIXIT/venv/bin"
-ExecStart=/opt/fixit/FIXIT/venv/bin/gunicorn wsgi:app \
+Environment="PATH=/opt/fixit/venv/bin"
+ExecStart=/opt/fixit/venv/bin/gunicorn wsgi:app \
     --bind 0.0.0.0:8000 \
     --workers 1 \
     --timeout 120 \
@@ -320,7 +324,7 @@ cd /opt/fixit/FIXIT
 git pull origin main
 
 # 3. Attiva il venv e aggiorna le dipendenze
-source venv/bin/activate
+source /opt/fixit/venv/bin/activate
 pip install -r requirements.txt
 
 # 4. Riavvia il servizio
@@ -375,11 +379,11 @@ python -c "from waitress import serve; from wsgi import app; serve(app, host='0.
 sudo journalctl -u fixit -n 50
 
 # Verifica che il virtual environment sia corretto
-/opt/fixit/FIXIT/venv/bin/python -c "import flask; print(flask.__version__)"
+/opt/fixit/venv/bin/python -c "import flask; print(flask.__version__)"
 
 # Testa manualmente
 cd /opt/fixit/FIXIT
-source venv/bin/activate
+source /opt/fixit/venv/bin/activate
 gunicorn wsgi:app -b 0.0.0.0:8000
 ```
 
