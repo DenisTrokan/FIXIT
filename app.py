@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
+from flask_mail import Mail, Message
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -21,6 +22,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg'}
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'mail.dk.dfds.root')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 25))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'False').lower() in ('true', '1', 'yes')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'FIXIT@dfds.com')
+app.config['TICKET_NOTIFICATION_EMAIL'] = os.getenv('TICKET_NOTIFICATION_EMAIL', 'denitro@dfds.com')
 
 # Session security settings
 _secure_cookie = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
@@ -34,6 +40,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Initialize database
 db = SQLAlchemy(app)
+mail = Mail(app)
 
 # CSRF protection
 csrf = CSRFProtect(app)
@@ -148,6 +155,60 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 
+def send_new_ticket_notification(ticket):
+    """Send email notification when a new ticket is created"""
+    recipient = app.config.get('TICKET_NOTIFICATION_EMAIL')
+    if not recipient:
+        return False
+
+    ticket_url = url_for('ticket_detail', ticket_id=ticket.id, _external=True)
+    subject = f"[FIXIT] Nuovo ticket #{ticket.id} - {ticket.ticket_type}"
+
+    details = [
+        f"<li><strong>ID Ticket:</strong> #{ticket.id}</li>",
+        f"<li><strong>Tipo:</strong> {ticket.ticket_type}</li>",
+        f"<li><strong>Richiedente:</strong> {ticket.requester_name}</li>",
+        f"<li><strong>Creato il:</strong> {ticket.created_at.strftime('%d/%m/%Y %H:%M:%S')} UTC</li>",
+        f"<li><strong>Descrizione:</strong> {ticket.description}</li>",
+    ]
+
+    if ticket.ticket_type == 'MEZZO':
+        if ticket.vehicle_type:
+            details.append(f"<li><strong>Tipo mezzo:</strong> {ticket.vehicle_type}</li>")
+        if ticket.vehicle_number:
+            details.append(f"<li><strong>Numero mezzo:</strong> {ticket.vehicle_number}</li>")
+        if ticket.anomaly_category:
+            details.append(f"<li><strong>Categoria anomalia:</strong> {ticket.anomaly_category}</li>")
+    elif ticket.ticket_type == 'TECNICO':
+        if ticket.title:
+            details.append(f"<li><strong>Titolo:</strong> {ticket.title}</li>")
+        if ticket.priority:
+            details.append(f"<li><strong>Priorità:</strong> {ticket.priority}</li>")
+
+    if ticket.image_filename:
+        details.append("<li><strong>Immagine:</strong> Allegata nel ticket</li>")
+
+    html = f"""
+    <html>
+      <body style=\"font-family: Arial, sans-serif; line-height: 1.6;\">
+        <h2>Nuovo ticket registrato su FIXIT</h2>
+        <ul>
+          {''.join(details)}
+        </ul>
+        <p><a href=\"{ticket_url}\">Apri ticket in dashboard</a></p>
+      </body>
+    </html>
+    """
+
+    try:
+        msg = Message(subject=subject, recipients=[recipient], html=html)
+        mail.send(msg)
+        return True
+    except Exception:
+        app.logger.exception('Errore invio email per ticket #%s', ticket.id)
+        return False
+
+
 def login_required(f):
     """Decorator to require login for admin routes"""
     @wraps(f)
@@ -214,6 +275,9 @@ def new_mezzi():
         
         db.session.add(ticket)
         db.session.commit()
+
+        if not send_new_ticket_notification(ticket):
+            flash('Ticket creato, ma la notifica email non è stata inviata.', 'warning')
         
         flash(f'Ticket #{ticket.id} creato con successo!', 'success')
         return redirect(url_for('index'))
@@ -270,6 +334,9 @@ def new_tecnico():
         
         db.session.add(ticket)
         db.session.commit()
+
+        if not send_new_ticket_notification(ticket):
+            flash('Ticket creato, ma la notifica email non è stata inviata.', 'warning')
         
         flash(f'Ticket #{ticket.id} creato con successo!', 'success')
         return redirect(url_for('index'))

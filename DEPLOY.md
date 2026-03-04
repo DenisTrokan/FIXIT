@@ -111,6 +111,11 @@ SECRET_KEY=<genera-con-python -c "import secrets; print(secrets.token_hex(32))">
 FLASK_ENV=production
 ADMIN_PASSWORD=<password-sicura>
 SESSION_COOKIE_SECURE=False
+MAIL_SERVER=mail.dk.dfds.root
+MAIL_PORT=25
+MAIL_USE_TLS=False
+MAIL_DEFAULT_SENDER=FIXIT@dfds.com
+TICKET_NOTIFICATION_EMAIL=denitro@dfds.com
 ```
 
 ### 5. Crea le directory necessarie
