@@ -64,17 +64,16 @@ Dalla console AWS Lightsail:
 
 ## Installazione dell'Applicazione
 
-### 1. Crea un utente dedicato (consigliato)
+### 1. Crea la directory base del progetto
 
 ```bash
-sudo useradd -m -s /bin/bash fixit
-sudo su - fixit
+sudo mkdir -p /opt/fixit
+cd /opt/fixit
 ```
 
 ### 2. Clona o copia il progetto
 
 ```bash
-cd /home/fixit
 git clone <URL-DEL-TUO-REPO> FIXIT
 cd FIXIT
 ```
@@ -83,14 +82,18 @@ Oppure copia i file con `scp`:
 
 ```bash
 # Dal PC Windows (PowerShell):
-scp -r .\* ubuntu@<IP-SERVER>:/home/fixit/FIXIT/
+scp -r .\* ubuntu@<IP-SERVER>:/opt/fixit/FIXIT/
 ```
 
 ### 3. Crea l'ambiente virtuale e installa le dipendenze
 
+> **Nota**: il venv viene creato in `/opt/fixit/venv` (fuori dalla repo), così rimane separato dal codice e non viene sovrascritto da `git pull`.
+
 ```bash
+cd /opt/fixit
 python3 -m venv venv
-source venv/bin/activate
+source /opt/fixit/venv/bin/activate
+cd FIXIT
 pip install -r requirements.txt
 ```
 
@@ -120,7 +123,8 @@ mkdir -p instance
 ### 6. Test rapido — verifica che l'app parta
 
 ```bash
-source venv/bin/activate
+source /opt/fixit/venv/bin/activate
+cd /opt/fixit/FIXIT
 python wsgi.py
 ```
 
@@ -137,8 +141,8 @@ Gunicorn (Green Unicorn) è un server WSGI HTTP per applicazioni Python. A diffe
 ### Avvio rapido
 
 ```bash
-cd /home/fixit/FIXIT
-source venv/bin/activate
+cd /opt/fixit/FIXIT
+source /opt/fixit/venv/bin/activate
 gunicorn wsgi:app -b 0.0.0.0:8000 -w 1
 ```
 
@@ -190,11 +194,11 @@ Description=FIXIT Ticketing System (Gunicorn)
 After=network.target
 
 [Service]
-User=fixit
-Group=fixit
-WorkingDirectory=/home/fixit/FIXIT
-Environment="PATH=/home/fixit/FIXIT/venv/bin"
-ExecStart=/home/fixit/FIXIT/venv/bin/gunicorn wsgi:app \
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/fixit/FIXIT
+Environment="PATH=/opt/fixit/venv/bin"
+ExecStart=/opt/fixit/venv/bin/gunicorn wsgi:app \
     --bind 0.0.0.0:8000 \
     --workers 1 \
     --timeout 120 \
@@ -238,7 +242,7 @@ curl http://localhost:8000
 Crea lo script di health check:
 
 ```bash
-sudo nano /home/fixit/check_fixit.sh
+sudo nano /opt/fixit/check_fixit.sh
 ```
 
 Contenuto:
@@ -248,17 +252,17 @@ Contenuto:
 # Health check per FIXIT - riavvia se non risponde
 
 if ! curl -sf http://localhost:8000 > /dev/null 2>&1; then
-    echo "$(date) - FIXIT non risponde, riavvio in corso..." >> /home/fixit/fixit_monitor.log
+    echo "$(date) - FIXIT non risponde, riavvio in corso..." >> /opt/fixit/fixit_monitor.log
     sudo systemctl restart fixit
 else
-    echo "$(date) - FIXIT OK" >> /home/fixit/fixit_monitor.log
+    echo "$(date) - FIXIT OK" >> /opt/fixit/fixit_monitor.log
 fi
 ```
 
 Rendi eseguibile:
 
 ```bash
-sudo chmod +x /home/fixit/check_fixit.sh
+sudo chmod +x /opt/fixit/check_fixit.sh
 ```
 
 ### 2. Configura il cron job
@@ -271,10 +275,10 @@ Aggiungi queste righe:
 
 ```cron
 # Health check FIXIT ogni 5 minuti
-*/5 * * * * /home/fixit/check_fixit.sh
+*/5 * * * * /opt/fixit/check_fixit.sh
 
 # Pulizia log monitor ogni settimana (domenica alle 03:00)
-0 3 * * 0 truncate -s 0 /home/fixit/fixit_monitor.log
+0 3 * * 0 truncate -s 0 /opt/fixit/fixit_monitor.log
 ```
 
 ### 3. Verifica i cron job
@@ -312,13 +316,13 @@ sudo journalctl -u fixit --since today
 
 ```bash
 # 1. Vai nella cartella del progetto
-cd /home/fixit/FIXIT
+cd /opt/fixit/FIXIT
 
 # 2. Aggiorna il codice
 git pull origin main
 
 # 3. Attiva il venv e aggiorna le dipendenze
-source venv/bin/activate
+source /opt/fixit/venv/bin/activate
 pip install -r requirements.txt
 
 # 4. Riavvia il servizio
@@ -373,11 +377,11 @@ python -c "from waitress import serve; from wsgi import app; serve(app, host='0.
 sudo journalctl -u fixit -n 50
 
 # Verifica che il virtual environment sia corretto
-/home/fixit/FIXIT/venv/bin/python -c "import flask; print(flask.__version__)"
+/opt/fixit/venv/bin/python -c "import flask; print(flask.__version__)"
 
 # Testa manualmente
-cd /home/fixit/FIXIT
-source venv/bin/activate
+cd /opt/fixit/FIXIT
+source /opt/fixit/venv/bin/activate
 gunicorn wsgi:app -b 0.0.0.0:8000
 ```
 
@@ -396,8 +400,8 @@ sudo kill <PID>
 ### Permessi negati sui file
 
 ```bash
-# Assicurati che l'utente fixit possieda tutti i file
-sudo chown -R fixit:fixit /home/fixit/FIXIT
+# Assicurati che l'utente ubuntu possieda tutta la directory /opt/fixit
+sudo chown -R ubuntu:ubuntu /opt/fixit
 ```
 
 ### Database locked
@@ -414,7 +418,7 @@ sudo systemctl restart fixit
 sudo systemctl status cron
 
 # Controlla il log
-cat /home/fixit/fixit_monitor.log
+cat /opt/fixit/fixit_monitor.log
 ```
 
 ---
@@ -449,7 +453,7 @@ server {
     }
 
     location /static {
-        alias /home/fixit/FIXIT/static;
+        alias /opt/fixit/FIXIT/static;
     }
 }
 ```
