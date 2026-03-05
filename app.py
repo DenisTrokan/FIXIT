@@ -26,6 +26,7 @@ app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'mail.dk.dfds.root')
 app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 25))
 app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'False').lower() in ('true', '1', 'yes')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'FIXIT@dfds.com')
+app.config['MAIL_TIMEOUT'] = int(os.getenv('MAIL_TIMEOUT', 5))  # seconds – avoid long hangs on DNS failures
 app.config['TICKET_NOTIFICATION_EMAIL'] = os.getenv('TICKET_NOTIFICATION_EMAIL', 'denitro@dfds.com')
 
 # Session security settings
@@ -202,10 +203,11 @@ def send_new_ticket_notification(ticket):
 
     try:
         msg = Message(subject=subject, recipients=[recipient], html=html)
-        mail.send(msg)
+        with mail.connect() as conn:
+            conn.send(msg)
         return True
-    except Exception:
-        app.logger.exception('Errore invio email per ticket #%s', ticket.id)
+    except Exception as e:
+        app.logger.warning('Email non inviata per ticket #%s: %s', ticket.id, e)
         return False
 
 
