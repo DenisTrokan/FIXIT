@@ -96,12 +96,12 @@
                                                         {% endif %}
                                                     </div>
                                                     <div class="collapse mt-2" id="pw-{{ user.id }}">
-                                                        <form method="POST" action="{{ url_for('manage_users') }}" class="d-flex gap-2">
+                                                        <form method="POST" action="{{ url_for('manage_users') }}" class="d-flex gap-2" style="min-width: 300px;">
                                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                             <input type="hidden" name="action" value="reset_password">
                                                             <input type="hidden" name="user_id" value="{{ user.id }}">
-                                                            <input type="password" name="new_password" class="form-control" placeholder="Nuova password" required>
-                                                            <button type="submit" class="btn btn-sm btn-primary">Aggiorna</button>
+                                                            <input type="password" name="new_password" class="form-control form-control-sm" placeholder="Nuova password" required style="min-width: 180px;">
+                                                            <button type="submit" class="btn btn-sm btn-primary text-nowrap">Aggiorna</button>
                                                         </form>
                                                     </div>
                                                 </td>
