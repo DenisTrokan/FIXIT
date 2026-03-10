@@ -1,4 +1,5 @@
 import os
+import threading
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
@@ -156,11 +157,23 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 
+def _send_email_thread(app_ctx, subject, recipient, html, ticket_id):
+    """Background thread that actually sends the email (runs outside the request)."""
+    with app_ctx:
+        try:
+            msg = Message(subject=subject, recipients=[recipient], html=html)
+            mail.send(msg)
+            app.logger.info('Email inviata per ticket #%s', ticket_id)
+        except Exception as e:
+            app.logger.warning('Email non inviata per ticket #%s: %s', ticket_id, e)
+
+
 def send_new_ticket_notification(ticket):
-    """Send email notification when a new ticket is created"""
+    """Build the notification email and dispatch it in a background thread
+    so that DNS/SMTP failures never block the HTTP response."""
     recipient = app.config.get('TICKET_NOTIFICATION_EMAIL')
     if not recipient:
-        return False
+        return
 
     ticket_url = url_for('ticket_detail', ticket_id=ticket.id, _external=True)
     subject = f"[FIXIT] Nuovo ticket #{ticket.id} - {ticket.ticket_type}"
@@ -201,14 +214,13 @@ def send_new_ticket_notification(ticket):
     </html>
     """
 
-    try:
-        msg = Message(subject=subject, recipients=[recipient], html=html)
-        with mail.connect() as conn:
-            conn.send(msg)
-        return True
-    except Exception as e:
-        app.logger.warning('Email non inviata per ticket #%s: %s', ticket.id, e)
-        return False
+    # Fire-and-forget in a daemon thread so the request returns immediately
+    t = threading.Thread(
+        target=_send_email_thread,
+        args=(app.app_context(), subject, recipient, html, ticket.id),
+        daemon=True,
+    )
+    t.start()
 
 
 def login_required(f):
@@ -278,8 +290,7 @@ def new_mezzi():
         db.session.add(ticket)
         db.session.commit()
 
-        if not send_new_ticket_notification(ticket):
-            flash('Ticket creato, ma la notifica email non è stata inviata.', 'warning')
+        send_new_ticket_notification(ticket)
         
         flash(f'Ticket #{ticket.id} creato con successo!', 'success')
         return redirect(url_for('index'))
@@ -337,8 +348,7 @@ def new_tecnico():
         db.session.add(ticket)
         db.session.commit()
 
-        if not send_new_ticket_notification(ticket):
-            flash('Ticket creato, ma la notifica email non è stata inviata.', 'warning')
+        send_new_ticket_notification(ticket)
         
         flash(f'Ticket #{ticket.id} creato con successo!', 'success')
         return redirect(url_for('index'))
