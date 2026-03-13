@@ -26,8 +26,10 @@ app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg'}
 app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'mail.dk.dfds.root')
 app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 25))
 app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'False').lower() in ('true', '1', 'yes')
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')  # None = no auth (relay)
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'FIXIT@dfds.com')
-app.config['MAIL_TIMEOUT'] = int(os.getenv('MAIL_TIMEOUT', 5))  # seconds – avoid long hangs on DNS failures
+app.config['MAIL_TIMEOUT'] = int(os.getenv('MAIL_TIMEOUT', 10))  # seconds – TLS handshake needs more time
 app.config['TICKET_NOTIFICATION_EMAIL'] = os.getenv('TICKET_NOTIFICATION_EMAIL', 'denitro@dfds.com')
 
 # Session security settings

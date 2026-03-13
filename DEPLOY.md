@@ -1,8 +1,10 @@
 # 🚀 Guida al Deploy in Produzione - FIXIT
 
-Guida completa per il deploy di FIXIT su **AWS Lightsail** (Ubuntu/Debian) con Gunicorn come server WSGI e configurazione per mantenere l'applicazione attiva 24/7.
+Guida completa per il deploy di FIXIT su **AWS Lightsail** (Ubuntu/Debian) con **Nginx** come reverse proxy e **Gunicorn** come server WSGI.
 
-> **Nota**: Questa guida è per la versione 1.0 con HTTP. HTTPS potrà essere aggiunto in seguito con un reverse proxy (nginx + Let's Encrypt).
+> **Architettura**: Internet → Nginx (:80) → Gunicorn (:8000 locale) → Flask app
+
+Nginx gestisce le connessioni TCP (bot, scanner, richieste lente) e passa a Gunicorn solo richieste HTTP valide, eliminando i WORKER TIMEOUT da connessioni fantasma.
 
 ---
 
@@ -12,12 +14,13 @@ Guida completa per il deploy di FIXIT su **AWS Lightsail** (Ubuntu/Debian) con G
 2. [Setup del Server AWS Lightsail](#setup-del-server-aws-lightsail)
 3. [Installazione dell'Applicazione](#installazione-dellapplicazione)
 4. [Configurazione Gunicorn (WSGI)](#configurazione-gunicorn-wsgi)
-5. [Servizio Systemd (Avvio Automatico)](#servizio-systemd-avvio-automatico)
-6. [Cron per Monitoraggio e Manutenzione](#cron-per-monitoraggio-e-manutenzione)
-7. [Comandi Utili per la Gestione](#comandi-utili-per-la-gestione)
-8. [Sviluppo Locale su Windows](#sviluppo-locale-su-windows)
-9. [Troubleshooting](#troubleshooting)
-10. [Upgrade Futuro a HTTPS](#upgrade-futuro-a-https)
+5. [Configurazione Nginx (Reverse Proxy)](#configurazione-nginx-reverse-proxy)
+6. [Servizio Systemd (Avvio Automatico)](#servizio-systemd-avvio-automatico)
+7. [Cron per Monitoraggio e Manutenzione](#cron-per-monitoraggio-e-manutenzione)
+8. [Comandi Utili per la Gestione](#comandi-utili-per-la-gestione)
+9. [Sviluppo Locale su Windows](#sviluppo-locale-su-windows)
+10. [Troubleshooting](#troubleshooting)
+11. [Upgrade Futuro a HTTPS](#upgrade-futuro-a-https)
 
 ---
 
@@ -26,7 +29,7 @@ Guida completa per il deploy di FIXIT su **AWS Lightsail** (Ubuntu/Debian) con G
 ### Sul server AWS Lightsail
 - Istanza Ubuntu 22.04 LTS (o Debian)
 - Python 3.8+ installato
-- Porta **8000** (o la porta scelta) aperta nel firewall Lightsail
+- Porte **22** (SSH) e **80** (HTTP) aperte nel firewall Lightsail
 
 ### Sul PC Windows (sviluppo)
 - Python 3.8+
@@ -49,16 +52,21 @@ ssh ubuntu@<IP-DEL-TUO-SERVER>
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install python3 python3-pip python3-venv -y
+sudo apt install python3 python3-pip python3-venv nginx -y
 ```
 
-### 3. Apri la porta nel firewall Lightsail
+### 3. Configura il firewall Lightsail
 
 Dalla console AWS Lightsail:
 1. Vai alla tua istanza → **Networking**
-2. In **Firewall**, clicca **Add rule**
-3. Aggiungi: **Custom TCP**, porta **8000**
-4. Salva
+2. In **Firewall**, configura le seguenti regole:
+
+| Protocollo | Porta | Note |
+|---|---|---|
+| SSH | **22** | Accesso remoto |
+| HTTP | **80** | Nginx (accesso pubblico) |
+
+> **Importante**: la porta 8000 **NON** deve essere aperta. Gunicorn ascolta solo su `127.0.0.1:8000` (localhost), accessibile solo da Nginx.
 
 ---
 
@@ -115,6 +123,7 @@ MAIL_SERVER=mail.dk.dfds.root
 MAIL_PORT=25
 MAIL_USE_TLS=False
 MAIL_DEFAULT_SENDER=FIXIT@dfds.com
+MAIL_TIMEOUT=5
 TICKET_NOTIFICATION_EMAIL=denitro@dfds.com
 ```
 
@@ -143,22 +152,22 @@ Se funziona (nessun errore), interrompi con `Ctrl+C`.
 
 Gunicorn (Green Unicorn) è un server WSGI HTTP per applicazioni Python. A differenza del server di sviluppo Flask, è progettato per la produzione: gestisce più richieste contemporaneamente, è stabile e affidabile.
 
-### Avvio rapido
+### Avvio rapido (test)
 
 ```bash
 cd /opt/fixit/FIXIT
 source /opt/fixit/venv/bin/activate
-gunicorn wsgi:app -b 0.0.0.0:8000 -w 1
+gunicorn wsgi:app -b 127.0.0.1:8000 -w 2
 ```
 
-L'app sarà raggiungibile su `http://<IP-SERVER>:8000`
+> **Nota**: Gunicorn ascolta su `127.0.0.1:8000` (solo localhost). Non è accessibile dall'esterno — Nginx farà da gateway.
 
 ### Parametri consigliati
 
 | Parametro | Valore | Descrizione |
 |-----------|--------|-------------|
-| `-b 0.0.0.0:8000` | Bind address | Ascolta su tutte le interfacce, porta 8000 |
-| `-w 1` | Workers | Con SQLite consigliato 1 worker per evitare lock in scrittura |
+| `-b 127.0.0.1:8000` | Bind address | Ascolta **solo** su localhost, protetto da Nginx |
+| `-w 2` | Workers | 2 worker — Nginx gestisce le connessioni lente, SQLite regge |
 | `--timeout 120` | Timeout | Secondi prima di terminare un worker lento |
 | `--access-logfile -` | Log accessi | Stampa log su stdout (catturato da systemd) |
 | `--error-logfile -` | Log errori | Stampa errori su stdout |
@@ -167,14 +176,93 @@ L'app sarà raggiungibile su `http://<IP-SERVER>:8000`
 
 ```bash
 gunicorn wsgi:app \
-    --bind 0.0.0.0:8000 \
-    --workers 1 \
+    --bind 127.0.0.1:8000 \
+    --workers 2 \
     --timeout 120 \
     --access-logfile - \
     --error-logfile -
 ```
 
-> Nota: con database SQLite è preferibile usare `--workers 1` per stabilità. Se in futuro passi a PostgreSQL/MySQL puoi aumentare i worker.
+> Con Nginx davanti è sicuro usare `--workers 2` anche con SQLite. Se in futuro passi a PostgreSQL/MySQL puoi aumentare i worker.
+
+---
+
+## Configurazione Nginx (Reverse Proxy)
+
+### Perché Nginx?
+
+Nginx gestisce le connessioni TCP in ingresso e protegge Gunicorn da:
+- **Bot e scanner** che aprono connessioni senza inviare dati
+- **Connessioni lente** che causavano WORKER TIMEOUT
+- **Richieste malformate** (HTTPS su porta HTTP, ecc.)
+- Serve i **file statici** direttamente (più veloce di Flask)
+
+### 1. Crea la configurazione Nginx
+
+```bash
+sudo nano /etc/nginx/sites-available/fixit
+```
+
+Incolla il seguente contenuto:
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+
+    # Dimensione massima upload (allineata a Flask MAX_CONTENT_LENGTH)
+    client_max_body_size 16M;
+
+    # Timeout per connessioni lente/bot
+    proxy_connect_timeout 10s;
+    proxy_read_timeout 120s;
+    proxy_send_timeout 120s;
+
+    # File statici serviti direttamente da Nginx (più veloce)
+    location /static/ {
+        alias /opt/fixit/FIXIT/static/;
+        expires 7d;
+        access_log off;
+    }
+
+    # Tutto il resto va a Gunicorn
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### 2. Attiva il sito e rimuovi il default
+
+```bash
+# Attiva la configurazione FIXIT
+sudo ln -s /etc/nginx/sites-available/fixit /etc/nginx/sites-enabled/
+
+# Rimuovi il sito default di Nginx
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Verifica che la configurazione sia corretta
+sudo nginx -t
+
+# Riavvia Nginx
+sudo systemctl restart nginx
+sudo systemctl enable nginx
+```
+
+### 3. Verifica
+
+```bash
+# Nginx attivo?
+sudo systemctl status nginx
+
+# Test locale via Nginx → Gunicorn
+curl -s -o /dev/null -w "%{http_code}" http://localhost
+# → deve restituire 200
+```
 
 ---
 
@@ -204,8 +292,8 @@ Group=ubuntu
 WorkingDirectory=/opt/fixit/FIXIT
 Environment="PATH=/opt/fixit/venv/bin"
 ExecStart=/opt/fixit/venv/bin/gunicorn wsgi:app \
-    --bind 0.0.0.0:8000 \
-    --workers 1 \
+    --bind 127.0.0.1:8000 \
+    --workers 2 \
     --timeout 120 \
     --access-logfile - \
     --error-logfile -
@@ -228,14 +316,15 @@ sudo systemctl status fixit          # Verifica stato
 ### 3. Verifica che funzioni
 
 ```bash
-# Controlla lo stato
+# Controlla lo stato di entrambi i servizi
 sudo systemctl status fixit
+sudo systemctl status nginx
 
 # Controlla i log
 sudo journalctl -u fixit -f
 
-# Testa dall'esterno
-curl http://localhost:8000
+# Testa la catena completa (Nginx → Gunicorn → Flask)
+curl http://localhost
 ```
 
 ---
@@ -254,11 +343,12 @@ Contenuto:
 
 ```bash
 #!/bin/bash
-# Health check per FIXIT - riavvia se non risponde
+# Health check per FIXIT - riavvia se non risponde (testa via Nginx)
 
-if ! curl -sf http://localhost:8000 > /dev/null 2>&1; then
+if ! curl -sf http://localhost > /dev/null 2>&1; then
     echo "$(date) - FIXIT non risponde, riavvio in corso..." >> /opt/fixit/fixit_monitor.log
     sudo systemctl restart fixit
+    sudo systemctl restart nginx
 else
     echo "$(date) - FIXIT OK" >> /opt/fixit/fixit_monitor.log
 fi
@@ -296,21 +386,31 @@ sudo crontab -l
 
 ## Comandi Utili per la Gestione
 
-### Gestione del servizio
+### Gestione dei servizi
 
 ```bash
 # Stato
 sudo systemctl status fixit
+sudo systemctl status nginx
 
-# Avvia / Ferma / Riavvia
+# Avvia / Ferma / Riavvia FIXIT
 sudo systemctl start fixit
 sudo systemctl stop fixit
 sudo systemctl restart fixit
 
-# Log in tempo reale
+# Avvia / Ferma / Riavvia Nginx
+sudo systemctl start nginx
+sudo systemctl stop nginx
+sudo systemctl restart nginx
+
+# Log Gunicorn/Flask in tempo reale
 sudo journalctl -u fixit -f
 
-# Log delle ultime 100 righe
+# Log Nginx
+sudo tail -f /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log
+
+# Log delle ultime 100 righe di FIXIT
 sudo journalctl -u fixit -n 100
 
 # Log di oggi
@@ -324,7 +424,7 @@ sudo journalctl -u fixit --since today
 cd /opt/fixit/FIXIT
 
 # 2. Aggiorna il codice
-git pull origin main
+git pull --ff-only origin main
 
 # 3. Attiva il venv e aggiorna le dipendenze
 source /opt/fixit/venv/bin/activate
@@ -370,6 +470,7 @@ python -c "from waitress import serve; from wsgi import app; serve(app, host='0.
 ```
 
 - Il file `wsgi.py` funziona sia con Gunicorn (Linux/produzione) sia con Waitress (Windows/test).
+- In locale non serve Nginx — il server Flask di sviluppo è sufficiente.
 
 ---
 
@@ -378,16 +479,34 @@ python -c "from waitress import serve; from wsgi import app; serve(app, host='0.
 ### L'app non si avvia
 
 ```bash
-# Controlla i log di errore
+# Controlla i log di errore di Gunicorn/Flask
 sudo journalctl -u fixit -n 50
+
+# Controlla i log di Nginx
+sudo tail -20 /var/log/nginx/error.log
 
 # Verifica che il virtual environment sia corretto
 /opt/fixit/venv/bin/python -c "import flask; print(flask.__version__)"
 
-# Testa manualmente
+# Testa Gunicorn manualmente
 cd /opt/fixit/FIXIT
 source /opt/fixit/venv/bin/activate
-gunicorn wsgi:app -b 0.0.0.0:8000
+gunicorn wsgi:app -b 127.0.0.1:8000
+```
+
+### Nginx restituisce 502 Bad Gateway
+
+Gunicorn non è in esecuzione o non risponde:
+
+```bash
+# Verifica che Gunicorn stia girando
+sudo systemctl status fixit
+
+# Verifica che la porta 8000 sia in ascolto
+sudo ss -tlnp | grep 8000
+
+# Riavvia Gunicorn
+sudo systemctl restart fixit
 ```
 
 ### "Address already in use"
@@ -426,67 +545,64 @@ sudo systemctl status cron
 cat /opt/fixit/fixit_monitor.log
 ```
 
+### Nginx — verifica configurazione
+
+```bash
+# Testa la configurazione senza riavviare
+sudo nginx -t
+
+# Ricarica senza downtime
+sudo systemctl reload nginx
+```
+
 ---
 
 ## Upgrade Futuro a HTTPS
 
-Per la versione 1.0 l'applicazione funziona con HTTP. Quando sarà necessario aggiungere HTTPS:
+Con Nginx già configurato, aggiungere HTTPS è semplice:
 
-### Opzione 1: Nginx come reverse proxy + Let's Encrypt (consigliata)
+### Opzione 1: Let's Encrypt (consigliata — gratuito)
+
+Prerequisito: avere un **dominio** puntato all'IP del server.
 
 ```bash
-# 1. Installa nginx e certbot
-sudo apt install nginx certbot python3-certbot-nginx -y
+# 1. Installa certbot
+sudo apt install certbot python3-certbot-nginx -y
 
-# 2. Configura nginx come reverse proxy
+# 2. Aggiorna server_name in Nginx
 sudo nano /etc/nginx/sites-available/fixit
-```
+# Cambia: server_name _; → server_name tuodominio.com;
 
-Configurazione nginx:
+# 3. Ricarica Nginx
+sudo systemctl reload nginx
 
-```nginx
-server {
-    listen 80;
-    server_name tuodominio.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /static {
-        alias /opt/fixit/FIXIT/static;
-    }
-}
-```
-
-```bash
-# 3. Attiva il sito
-sudo ln -s /etc/nginx/sites-available/fixit /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-
-# 4. Ottieni certificato SSL gratuito
+# 4. Ottieni certificato SSL gratuito (automatico)
 sudo certbot --nginx -d tuodominio.com
 
 # 5. Aggiorna .env
 # SESSION_COOKIE_SECURE=True
+
+# 6. Riavvia Flask
+sudo systemctl restart fixit
 ```
+
+Certbot configura automaticamente Nginx per HTTPS e imposta il rinnovo automatico del certificato.
 
 ### Opzione 2: AWS Lightsail Load Balancer
 
 Lightsail offre un load balancer integrato con certificato SSL gratuito. Questa è l'opzione più semplice se hai un dominio associato.
 
-Quando attivi HTTPS, ricorda di aggiornare in `.env`:
+### Dopo aver attivato HTTPS
+
+Aggiorna in `.env`:
 ```env
 SESSION_COOKIE_SECURE=True
 ```
 
+E nel firewall Lightsail aggiungi la porta **443** (HTTPS).
+
 ---
 
-**Versione guida**: 1.0  
+**Versione guida**: 1.1  
 **Data**: Marzo 2026  
 **Compatibile con**: FIXIT 1.0.0 su AWS Lightsail (Ubuntu 22.04)
