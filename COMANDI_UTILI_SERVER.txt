@@ -1,0 +1,122 @@
+COMANDI UTILI SERVER FIXIT (AWS/LINUX)
+
+Nota: eseguire da SSH sul server.
+Nota sicurezza: NON usare "git pull" semplice in produzione.
+Usare sempre "git pull --ff-only".
+
+============================================================
+1) STATO SERVIZI
+============================================================
+sudo systemctl status fixit
+sudo systemctl status nginx
+
+# Stato sintetico (utile per check veloce)
+systemctl is-active fixit ; systemctl is-active nginx
+
+============================================================
+2) RIAVVIO SERVIZI
+============================================================
+# Riavvia solo app Flask/Gunicorn
+sudo systemctl restart fixit
+
+# Riavvia solo Nginx
+sudo systemctl restart nginx
+
+# Riavvia entrambi
+sudo systemctl restart fixit ; sudo systemctl restart nginx
+
+============================================================
+3) START / STOP
+============================================================
+sudo systemctl start fixit
+sudo systemctl stop fixit
+sudo systemctl start nginx
+sudo systemctl stop nginx
+
+============================================================
+4) LOG UTILI
+============================================================
+# Ultime 100 righe log app
+sudo journalctl -u fixit -n 100 --no-pager
+
+# Log live app (CTRL+C per uscire)
+sudo journalctl -u fixit -f
+
+# Log errori Nginx
+sudo tail -n 100 /var/log/nginx/error.log
+
+# Log accessi Nginx
+sudo tail -n 100 /var/log/nginx/access.log
+
+============================================================
+5) CHECK CONFIG NGINX
+============================================================
+sudo nginx -t
+sudo systemctl reload nginx
+
+============================================================
+6) HEALTH CHECK RAPIDO
+============================================================
+curl -I http://localhost
+curl -I http://127.0.0.1:8000
+
+============================================================
+7) UPDATE CODICE SICURO (NO RISCHI DB)
+============================================================
+# Vai nella cartella del progetto
+cd /home/ubuntu/FIXIT
+
+# Verifica branch e stato locale
+git branch --show-current
+git status --short
+
+# Backup database PRIMA di aggiornare (consigliato)
+mkdir -p /home/ubuntu/backups
+cp -a /home/ubuntu/FIXIT/instance/tickets.db /home/ubuntu/backups/tickets.db.$(date +%F_%H%M%S)
+
+# Recupera metadati remoti
+git fetch origin
+
+# Aggiorna solo fast-forward (niente merge automatici)
+git pull --ff-only origin main
+
+# Riavvia app
+sudo systemctl restart fixit
+
+# Check rapido dopo update
+sudo systemctl status fixit --no-pager -l
+curl -I http://localhost
+
+# Se "git pull --ff-only" fallisce: fermati e NON forzare
+# (significa che ci sono divergenze o commit locali)
+
+# Caso modifiche locali non committate (solo se necessario)
+git stash push -m "temp-before-update"
+git pull --ff-only origin main
+git stash pop
+sudo systemctl restart fixit
+
+# Se stash pop crea conflitti: lascia in pausa e chiedi supporto
+
+============================================================
+8) AVVIO AUTOMATICO AL BOOT
+============================================================
+sudo systemctl enable fixit
+sudo systemctl enable nginx
+
+============================================================
+9) COMANDI DIAGNOSTICA EXTRA
+============================================================
+# Porte in ascolto (80 e 8000)
+sudo ss -tulpen | grep -E ":80|:8000"
+
+# Processi gunicorn
+ps aux | grep gunicorn
+
+============================================================
+10) COMANDI DA EVITARE IN PRODUZIONE
+============================================================
+# Rischiosi: possono perdere modifiche locali
+# git pull (senza --ff-only)
+# git reset --hard
+# git clean -fd
