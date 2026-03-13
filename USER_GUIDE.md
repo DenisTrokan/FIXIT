@@ -4,8 +4,8 @@ Questa guida spiega in modo rapido come usare il sito FIXIT per inserire e gesti
 
 ## 1) Accesso al sito
 
-- **Homepage pubblica**: `http://63.179.13.224:8000/`
-- **Login admin**: `http://63.179.13.224:8000/admin/login`
+- **Homepage pubblica**: `http://63.179.13.224/`
+- **Login admin**: `http://63.179.13.224/admin/login`
 
 ---
 

@@ -237,11 +237,11 @@ Per il deploy su AWS Lightsail (o altro server Linux) con Gunicorn, systemd e cr
 👉 **[DEPLOY.md](DEPLOY.md)** — Guida al deploy in produzione
 
 La guida include:
-- Configurazione Gunicorn (server WSGI)
+- Configurazione Nginx (reverse proxy) + Gunicorn (server WSGI)
 - Servizio systemd per avvio automatico e auto-restart
 - Cron job per health check ogni 5 minuti
 - Istruzioni per aggiornamento e troubleshooting
-- Percorso upgrade a HTTPS (nginx + Let's Encrypt)
+- Percorso upgrade a HTTPS (Let's Encrypt)
 
 ## 📧 Supporto
 
