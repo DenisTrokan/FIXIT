@@ -11,12 +11,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
 from dotenv import load_dotenv
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Load environment variables
 load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+_enable_proxy_fix = os.getenv('ENABLE_PROXY_FIX', 'False').lower() in ('true', '1', 'yes')
+if _enable_proxy_fix:
+    # Trust one reverse proxy hop (Nginx) for real client IP and scheme.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-CHANGE-IN-PRODUCTION')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tickets.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
