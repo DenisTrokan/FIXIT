@@ -118,7 +118,8 @@ Modifica `.env` con valori sicuri per la produzione:
 SECRET_KEY=<genera-con-python -c "import secrets; print(secrets.token_hex(32))">
 FLASK_ENV=production
 ADMIN_PASSWORD=<password-sicura>
-SESSION_COOKIE_SECURE=False
+SESSION_COOKIE_SECURE=False 
+ENABLE_PROXY_FIX=False
 MAIL_SERVER=mail.dk.dfds.root
 MAIL_PORT=25
 MAIL_USE_TLS=False
