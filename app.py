@@ -183,12 +183,19 @@ def send_new_ticket_notification(ticket):
     if not recipient:
         return
 
+    # Map internal ticket types to display names for email
+    ticket_type_display = {
+        'TECNICO': 'GENERICO',
+        'MEZZO': 'MEZZO'
+    }
+    display_type = ticket_type_display.get(ticket.ticket_type, ticket.ticket_type)
+
     ticket_url = url_for('ticket_detail', ticket_id=ticket.id, _external=True)
-    subject = f"[FIXIT] Nuovo ticket #{ticket.id} - {ticket.ticket_type}"
+    subject = f"[FIXIT] Nuovo ticket #{ticket.id} - {display_type}"
 
     details = [
         f"<li><strong>ID Ticket:</strong> #{ticket.id}</li>",
-        f"<li><strong>Tipo:</strong> {ticket.ticket_type}</li>",
+        f"<li><strong>Tipo:</strong> {display_type}</li>",
         f"<li><strong>Richiedente:</strong> {ticket.requester_name}</li>",
         f"<li><strong>Creato il:</strong> {ticket.created_at.strftime('%d/%m/%Y %H:%M:%S')} UTC</li>",
         f"<li><strong>Descrizione:</strong> {ticket.description}</li>",
