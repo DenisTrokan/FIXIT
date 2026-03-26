@@ -120,6 +120,9 @@
                                     <td>
                                         {% if ticket.ticket_type == 'MEZZO' %}
                                             {{ ticket.anomaly_category }}
+                                            {% if ticket.vehicle_number %}
+                                                <br><small class="text-muted">N°/Targa: {{ ticket.vehicle_number }}</small>
+                                            {% endif %}
                                             {% if ticket.image_filename %}
                                                 <i class="bi bi-image text-info ms-1" title="Con foto"></i>
                                             {% endif %}
