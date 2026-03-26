@@ -20,7 +20,7 @@ config_local.py
 *.key
 *.pem
 
-# File con credenziali in chiaro - NON tracciare
+# File con credenziali in chiaro - NON tracciare (purgato dalla storia con git filter-repo)
 CREDENZIALI.md
 
 # File IDE
