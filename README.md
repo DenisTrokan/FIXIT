@@ -75,12 +75,6 @@ Richiede autenticazione:
 - Login: http://localhost:5000/admin/login
 - Dashboard: http://localhost:5000/admin/dashboard
 
-**Credenziali predefinite**:
-- Username: `admin`
-- Password: `admin123`
-
-⚠️ **IMPORTANTE**: Cambiare la password predefinita in produzione!
-
 ## 📁 Struttura del Progetto
 
 ```
