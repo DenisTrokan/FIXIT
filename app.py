@@ -1,12 +1,16 @@
 import os
+import csv
+import codecs
 import threading
+from io import StringIO
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, Response, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from sqlalchemy.orm import selectinload
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -445,6 +449,95 @@ def dashboard():
     admins = User.query.all()
     
     return render_template('dashboard.html', tickets=tickets, admins=admins, pagination=pagination, per_page=per_page)
+
+
+@app.route('/admin/export/csv')
+@login_required
+def export_tickets_csv():
+    """Export full ticket history as Excel-friendly CSV."""
+    tickets = (
+        Ticket.query.options(
+            selectinload(Ticket.comments),
+            selectinload(Ticket.assigned_to)
+        )
+        .order_by(Ticket.created_at.desc())
+        .all()
+    )
+
+    output = StringIO()
+    writer = csv.writer(output, delimiter=';', quoting=csv.QUOTE_MINIMAL)
+
+    writer.writerow([
+        'ID',
+        'Tipo Ticket',
+        'Status',
+        'Creato UTC',
+        'Inizio Lavorazione UTC',
+        'Chiuso UTC',
+        'Richiedente',
+        'Descrizione',
+        'Immagine',
+        'Assegnato ID',
+        'Assegnato Username',
+        'Tipo Mezzo',
+        'Numero Mezzo',
+        'Categoria Anomalia',
+        'Dipartimento',
+        'Titolo',
+        'Priorita',
+        'Numero Commenti',
+        'Commenti'
+    ])
+
+    def fmt_dt(value):
+        return value.strftime('%Y-%m-%d %H:%M:%S') if value else ''
+
+    def clean_text(value):
+        if not value:
+            return ''
+        return str(value).replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ').strip()
+
+    for ticket in tickets:
+        ordered_comments = sorted(ticket.comments, key=lambda c: c.created_at or datetime.min)
+        comment_chunks = []
+        for comment in ordered_comments:
+            comment_chunks.append(
+                f"{fmt_dt(comment.created_at)}|{clean_text(comment.author_name)}|{clean_text(comment.body)}"
+            )
+
+        writer.writerow([
+            ticket.id,
+            ticket.ticket_type,
+            ticket.status,
+            fmt_dt(ticket.created_at),
+            fmt_dt(ticket.started_at),
+            fmt_dt(ticket.closed_at),
+            clean_text(ticket.requester_name),
+            clean_text(ticket.description),
+            clean_text(ticket.image_filename),
+            ticket.assigned_to_id or '',
+            clean_text(ticket.assigned_to.username if ticket.assigned_to else ''),
+            clean_text(ticket.vehicle_type),
+            clean_text(ticket.vehicle_number),
+            clean_text(ticket.anomaly_category),
+            clean_text(ticket.department),
+            clean_text(ticket.title),
+            clean_text(ticket.priority),
+            len(ordered_comments),
+            ' || '.join(comment_chunks)
+        ])
+
+    csv_body = output.getvalue()
+    output.close()
+
+    filename = f"tickets_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+    csv_with_bom = codecs.BOM_UTF8 + csv_body.encode('utf-8')
+
+    return Response(
+        csv_with_bom,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={filename}'}
+    )
 
 
 @app.route('/admin/users', methods=['GET', 'POST'])

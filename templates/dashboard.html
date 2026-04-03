@@ -70,7 +70,12 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-list-ul me-2"></i>Elenco Ticket</span>
-                <span class="badge bg-primary">{{ pagination.total }} Ticket</span>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{{ url_for('export_tickets_csv') }}" class="btn btn-sm btn-outline-success" title="Esporta storico ticket CSV">
+                        <i class="bi bi-download me-1"></i>Export CSV
+                    </a>
+                    <span class="badge bg-primary">{{ pagination.total }} Ticket</span>
+                </div>
             </div>
             <div class="card-body p-0">
                 {% if tickets %}
