@@ -4,7 +4,7 @@ import codecs
 import threading
 from io import StringIO
 from datetime import datetime, timedelta
-from flask import Flask, Response, render_template, request, redirect, url_for, flash, session
+from flask import Flask, Response, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 from flask_wtf.csrf import CSRFProtect
@@ -16,6 +16,7 @@ from werkzeug.utils import secure_filename
 from functools import wraps
 from dotenv import load_dotenv
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask import jsonify
 
 # Load environment variables
 load_dotenv()
@@ -160,6 +161,208 @@ class Comment(db.Model):
 
     def __repr__(self):
         return f'<Comment {self.id} on Ticket {self.ticket_id}>'
+
+
+# ==================== STATISTICS FUNCTIONS ====================
+
+def get_global_stats(start_date=None, end_date=None):
+    """Get global statistics for all tickets."""
+    from datetime import datetime as dt, timedelta
+    
+    if isinstance(start_date, str):
+        start_date = dt.strptime(start_date, '%Y-%m-%d')
+    if isinstance(end_date, str):
+        end_date = dt.strptime(end_date, '%Y-%m-%d')
+    
+    if not start_date:
+        start_date = dt.min
+    if not end_date:
+        end_date = dt.utcnow()
+    
+    query = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at <= end_date)
+    
+    total_tickets = query.count()
+    status_counts = {
+        'NUOVO': query.filter(Ticket.status == 'NUOVO').count(),
+        'IN_LAVORAZIONE': query.filter(Ticket.status == 'IN_LAVORAZIONE').count(),
+        'RISOLTO': query.filter(Ticket.status == 'RISOLTO').count(),
+    }
+    
+    response_times = query.filter(Ticket.started_at.isnot(None)).all()
+    avg_response_minutes = None
+    if response_times:
+        total = sum([(t.started_at - t.created_at).total_seconds() / 60 for t in response_times if t.started_at and t.created_at])
+        avg_response_minutes = round(total / len(response_times), 1)
+    
+    resolved = query.filter(Ticket.closed_at.isnot(None), Ticket.status == 'RISOLTO').all()
+    avg_resolution_minutes = None
+    if resolved:
+        total = sum([(t.closed_at - t.created_at).total_seconds() / 60 for t in resolved if t.closed_at and t.created_at])
+        avg_resolution_minutes = round(total / len(resolved), 1)
+    
+    return {
+        'total_tickets': total_tickets,
+        'status_breakdown': status_counts,
+        'avg_response_time_minutes': avg_response_minutes,
+        'avg_resolution_time_minutes': avg_resolution_minutes,
+        'resolution_rate_percent': round((status_counts['RISOLTO'] / total_tickets * 100) if total_tickets > 0 else 0, 1),
+    }
+
+
+def get_operator_stats(start_date=None, end_date=None):
+    """Get statistics aggregated by operator."""
+    from datetime import datetime as dt
+    
+    if isinstance(start_date, str):
+        start_date = dt.strptime(start_date, '%Y-%m-%d')
+    if isinstance(end_date, str):
+        end_date = dt.strptime(end_date, '%Y-%m-%d')
+    
+    if not start_date:
+        start_date = dt.min
+    if not end_date:
+        end_date = dt.utcnow()
+    
+    base_query = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at <= end_date)
+    total_tickets_global = base_query.count()
+    
+    users = User.query.filter(User.assigned_tickets.any(Ticket.created_at.between(start_date, end_date))).all()
+    operators = []
+    
+    for user in users:
+        user_tickets = base_query.filter(Ticket.assigned_to_id == user.id).all()
+        if not user_tickets:
+            continue
+
+        status_counts = {
+            'NUOVO': 0,
+            'IN_LAVORAZIONE': 0,
+            'RISOLTO': 0,
+        }
+        for ticket in user_tickets:
+            if ticket.status in status_counts:
+                status_counts[ticket.status] += 1
+        
+        response_times = [(t.started_at - t.created_at).total_seconds() / 60 for t in user_tickets if t.started_at and t.created_at]
+        avg_response_minutes = round(sum(response_times) / len(response_times), 1) if response_times else None
+        
+        resolved = [t for t in user_tickets if t.closed_at and t.status == 'RISOLTO']
+        resolution_times = [(t.closed_at - t.created_at).total_seconds() / 60 for t in resolved]
+        avg_resolution_minutes = round(sum(resolution_times) / len(resolution_times), 1) if resolution_times else None
+
+        resolved_tickets = sorted(resolved, key=lambda ticket: ticket.closed_at, reverse=True)
+        resolved_ticket_details = []
+        for ticket in resolved_tickets:
+            resolution_minutes = (ticket.closed_at - ticket.created_at).total_seconds() / 60
+            resolved_ticket_details.append({
+                'ticket_id': ticket.id,
+                'ticket_type': ticket.ticket_type,
+                'requester_name': ticket.requester_name,
+                'description': ticket.description[:120] + ('...' if len(ticket.description) > 120 else ''),
+                'created_at': ticket.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'closed_at': ticket.closed_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'resolution_time_minutes': round(resolution_minutes, 1),
+                'resolution_time_hours': round(resolution_minutes / 60, 1),
+                'title': ticket.title or ticket.description[:80],
+            })
+        
+        operators.append({
+            'operator_id': user.id,
+            'operator_username': user.username,
+            'total_tickets': len(user_tickets),
+            'status_breakdown': status_counts,
+            'avg_response_time_minutes': avg_response_minutes,
+            'avg_resolution_time_minutes': avg_resolution_minutes,
+            'workload_percent': round((len(user_tickets) / total_tickets_global * 100) if total_tickets_global > 0 else 0, 1),
+            'resolved_tickets': len(resolved),
+            'open_tickets': status_counts['NUOVO'] + status_counts['IN_LAVORAZIONE'],
+            'in_progress_tickets': status_counts['IN_LAVORAZIONE'],
+            'new_tickets': status_counts['NUOVO'],
+            'recent_resolved_tickets': resolved_ticket_details,
+        })
+    
+    operators.sort(key=lambda x: x['total_tickets'], reverse=True)
+    return operators
+
+
+def get_category_stats():
+    """Get statistics on ticket categories and priorities."""
+    from sqlalchemy import func
+    
+    mezzo_anomalies = db.session.query(Ticket.anomaly_category, func.count(Ticket.id).label('count')).filter(
+        Ticket.ticket_type == 'MEZZO', Ticket.anomaly_category.isnot(None)
+    ).group_by(Ticket.anomaly_category).all()
+    
+    tecnico_priorities = db.session.query(Ticket.priority, func.count(Ticket.id).label('count')).filter(
+        Ticket.ticket_type == 'TECNICO', Ticket.priority.isnot(None)
+    ).group_by(Ticket.priority).all()
+    
+    return {
+        'mezzo_anomalies': {cat: cnt for cat, cnt in mezzo_anomalies},
+        'tecnico_priorities': {pri: cnt for pri, cnt in tecnico_priorities},
+    }
+
+
+def get_trend_data(start_date=None, end_date=None, granularity='day'):
+    """Get ticket resolution trends over time."""
+    from datetime import datetime as dt, timedelta
+    
+    if isinstance(start_date, str):
+        start_date = dt.strptime(start_date, '%Y-%m-%d')
+    if isinstance(end_date, str):
+        end_date = dt.strptime(end_date, '%Y-%m-%d')
+    
+    if not start_date:
+        end_date = dt.utcnow()
+        start_date = end_date - timedelta(days=30)
+    if not end_date:
+        end_date = dt.utcnow()
+    
+    tickets = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at <= end_date).all()
+    
+    trend_dict = {}
+    current = start_date.date()
+    end_only = end_date.date()
+    while current <= end_only:
+        trend_dict[str(current)] = {'NUOVO': 0, 'IN_LAVORAZIONE': 0, 'RISOLTO': 0, 'total': 0}
+        current += timedelta(days=1)
+    
+    for ticket in tickets:
+        key = str(ticket.created_at.date())
+        if key in trend_dict:
+            trend_dict[key][ticket.status] += 1
+            trend_dict[key]['total'] += 1
+    
+    return [{
+        'date': date_key,
+        'nuovo': data['NUOVO'],
+        'in_lavorazione': data['IN_LAVORAZIONE'],
+        'risolto': data['RISOLTO'],
+        'total': data['total'],
+    } for date_key, data in sorted(trend_dict.items())]
+
+
+def get_sla_violations(threshold_hours=48):
+    """Get tickets that violated SLA."""
+    violations = []
+    resolved = Ticket.query.filter(Ticket.status == 'RISOLTO', Ticket.closed_at.isnot(None)).all()
+    threshold_sec = threshold_hours * 3600
+    
+    for ticket in resolved:
+        resolution_time = (ticket.closed_at - ticket.created_at).total_seconds()
+        if resolution_time > threshold_sec:
+            violations.append({
+                'ticket_id': ticket.id,
+                'requester_name': ticket.requester_name,
+                'ticket_type': ticket.ticket_type,
+                'description': ticket.description[:100] + ('...' if len(ticket.description) > 100 else ''),
+                'created_at': ticket.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'closed_at': ticket.closed_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'resolution_time_hours': round(resolution_time / 3600, 1),
+            })
+    
+    violations.sort(key=lambda x: x['resolution_time_hours'], reverse=True)
+    return violations
 
 
 # ==================== HELPER FUNCTIONS ====================
@@ -451,6 +654,13 @@ def dashboard():
     return render_template('dashboard.html', tickets=tickets, admins=admins, pagination=pagination, per_page=per_page)
 
 
+@app.route('/admin/statistics')
+@login_required
+def statistics():
+    """Admin statistics dashboard"""
+    return render_template('statistics.html')
+
+
 @app.route('/admin/export/csv')
 @login_required
 def export_tickets_csv():
@@ -677,6 +887,80 @@ def ticket_detail(ticket_id):
     admins = User.query.all()
     
     return render_template('ticket_detail.html', ticket=ticket, admins=admins, comments=comments)
+
+
+# ==================== STATISTICS API ROUTES ====================
+
+@app.route('/admin/api/stats/global')
+@login_required
+def api_global_stats():
+    """API endpoint for global statistics"""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        stats = get_global_stats(start_date, end_date)
+        return jsonify(stats)
+    except Exception as e:
+        app.logger.error('Error in api_global_stats: %s', str(e))
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/stats/operators')
+@login_required
+def api_operator_stats():
+    """API endpoint for operator statistics"""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        stats = get_operator_stats(start_date, end_date)
+        return jsonify(stats)
+    except Exception as e:
+        app.logger.error('Error in api_operator_stats: %s', str(e))
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/stats/categories')
+@login_required
+def api_category_stats():
+    """API endpoint for category statistics"""
+    try:
+        stats = get_category_stats()
+        return jsonify(stats)
+    except Exception as e:
+        app.logger.error('Error in api_category_stats: %s', str(e))
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/stats/trends')
+@login_required
+def api_trend_stats():
+    """API endpoint for trend statistics"""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        granularity = request.args.get('granularity', 'day')
+        
+        stats = get_trend_data(start_date, end_date, granularity)
+        return jsonify(stats)
+    except Exception as e:
+        app.logger.error('Error in api_trend_stats: %s', str(e))
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/api/stats/sla')
+@login_required
+def api_sla_violations():
+    """API endpoint for SLA violations"""
+    try:
+        threshold = request.args.get('threshold', 48, type=int)
+        
+        violations = get_sla_violations(threshold)
+        return jsonify(violations)
+    except Exception as e:
+        app.logger.error('Error in api_sla_violations: %s', str(e))
+        return jsonify({'error': str(e)}), 500
 
 
 # ==================== DATABASE INITIALIZATION ====================
