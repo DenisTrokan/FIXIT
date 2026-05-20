@@ -488,7 +488,7 @@ function renderResolvedTickets(tickets) {
                         <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
                             <a href="/admin/ticket/${ticket.ticket_id}" target="_blank" rel="noopener noreferrer" class="resolved-ticket-link">#${ticket.ticket_id}</a>
                             <span class="badge bg-secondary">${ticket.ticket_type}</span>
-                            <span class="text-muted small">${ticket.closed_at}</span>
+                            <span class="text-muted small">${ticket.closed_at_local || ticket.closed_at}</span>
                         </div>
                         <div class="resolved-ticket-title">${ticket.title}</div>
                         <div class="resolved-ticket-meta text-muted small">${ticket.requester_name} · ${ticket.description}</div>
@@ -582,8 +582,8 @@ function renderSLAViolations(data) {
                 </td>
                 <td><small>${violation.requester_name}</small></td>
                 <td><small>${violation.description}</small></td>
-                <td><small>${violation.created_at}</small></td>
-                <td><small>${violation.closed_at}</small></td>
+                <td><small>${violation.created_at_local || violation.created_at}</small></td>
+                <td><small>${violation.closed_at_local || violation.closed_at}</small></td>
                 <td>
                     <strong class="text-danger">${violation.resolution_time_hours}h</strong>
                 </td>

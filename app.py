@@ -3,7 +3,7 @@ import csv
 import codecs
 import threading
 from io import StringIO
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Flask, Response, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
@@ -49,6 +49,39 @@ app.config['SESSION_COOKIE_SECURE'] = _secure_cookie
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
+
+# Timezone for display (server/DB stays in UTC)
+app.config['TIMEZONE'] = os.getenv('TIMEZONE', 'Europe/Rome')
+
+try:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+except Exception:
+    ZoneInfo = None
+    ZoneInfoNotFoundError = Exception
+
+def to_local(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    tzname = app.config.get('TIMEZONE', 'Europe/Rome')
+    if ZoneInfo:
+        try:
+            return dt.astimezone(ZoneInfo(tzname))
+        except ZoneInfoNotFoundError:
+            # tzdata not available on this system — fall back to UTC
+            app.logger.warning('Timezone data not found for %s, falling back to UTC', tzname)
+            return dt.astimezone(timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+def format_dt_local(dt, fmt='%Y-%m-%d %H:%M:%S %Z'):
+    d = to_local(dt)
+    if d is None:
+        return ''
+    return d.strftime(fmt)
+
+# Register Jinja filter for templates
+app.jinja_env.filters['format_dt_local'] = format_dt_local
 
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -168,18 +201,25 @@ class Comment(db.Model):
 def get_global_stats(start_date=None, end_date=None):
     """Get global statistics for all tickets."""
     from datetime import datetime as dt, timedelta
-    
+
+    end_is_exclusive = False
     if isinstance(start_date, str):
         start_date = dt.strptime(start_date, '%Y-%m-%d')
     if isinstance(end_date, str):
-        end_date = dt.strptime(end_date, '%Y-%m-%d')
-    
+        # when end_date is provided as YYYY-MM-DD we want to include the whole day
+        # convert to exclusive bound at next day and use '< end_date' in the query
+        end_date = dt.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        end_is_exclusive = True
+
     if not start_date:
         start_date = dt.min
     if not end_date:
         end_date = dt.utcnow()
-    
-    query = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at <= end_date)
+
+    if end_is_exclusive:
+        query = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at < end_date)
+    else:
+        query = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at <= end_date)
     
     total_tickets = query.count()
     status_counts = {
@@ -211,19 +251,24 @@ def get_global_stats(start_date=None, end_date=None):
 
 def get_operator_stats(start_date=None, end_date=None):
     """Get statistics aggregated by operator."""
-    from datetime import datetime as dt
-    
+    from datetime import datetime as dt, timedelta
+
+    end_is_exclusive = False
     if isinstance(start_date, str):
         start_date = dt.strptime(start_date, '%Y-%m-%d')
     if isinstance(end_date, str):
-        end_date = dt.strptime(end_date, '%Y-%m-%d')
-    
+        end_date = dt.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        end_is_exclusive = True
+
     if not start_date:
         start_date = dt.min
     if not end_date:
         end_date = dt.utcnow()
-    
-    base_query = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at <= end_date)
+
+    if end_is_exclusive:
+        base_query = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at < end_date)
+    else:
+        base_query = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at <= end_date)
     total_tickets_global = base_query.count()
     
     users = User.query.filter(User.assigned_tickets.any(Ticket.created_at.between(start_date, end_date))).all()
@@ -259,8 +304,10 @@ def get_operator_stats(start_date=None, end_date=None):
                 'ticket_type': ticket.ticket_type,
                 'requester_name': ticket.requester_name,
                 'description': ticket.description[:120] + ('...' if len(ticket.description) > 120 else ''),
-                'created_at': ticket.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-                'closed_at': ticket.closed_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'created_at': ticket.created_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'created_at_local': format_dt_local(ticket.created_at, '%d/%m/%Y %H:%M:%S %Z'),
+                'closed_at': ticket.closed_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'closed_at_local': format_dt_local(ticket.closed_at, '%d/%m/%Y %H:%M:%S %Z'),
                 'resolution_time_minutes': round(resolution_minutes, 1),
                 'resolution_time_hours': round(resolution_minutes / 60, 1),
                 'title': ticket.title or ticket.description[:80],
@@ -306,23 +353,31 @@ def get_category_stats():
 def get_trend_data(start_date=None, end_date=None, granularity='day'):
     """Get ticket resolution trends over time."""
     from datetime import datetime as dt, timedelta
-    
+
+    end_is_exclusive = False
     if isinstance(start_date, str):
         start_date = dt.strptime(start_date, '%Y-%m-%d')
     if isinstance(end_date, str):
-        end_date = dt.strptime(end_date, '%Y-%m-%d')
-    
+        end_date = dt.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        end_is_exclusive = True
+
     if not start_date:
         end_date = dt.utcnow()
         start_date = end_date - timedelta(days=30)
     if not end_date:
         end_date = dt.utcnow()
-    
-    tickets = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at <= end_date).all()
+
+    if end_is_exclusive:
+        tickets = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at < end_date).all()
+    else:
+        tickets = Ticket.query.filter(Ticket.created_at >= start_date, Ticket.created_at <= end_date).all()
     
     trend_dict = {}
     current = start_date.date()
-    end_only = end_date.date()
+    if end_is_exclusive:
+        end_only = (end_date - timedelta(days=1)).date()
+    else:
+        end_only = end_date.date()
     while current <= end_only:
         trend_dict[str(current)] = {'NUOVO': 0, 'IN_LAVORAZIONE': 0, 'RISOLTO': 0, 'total': 0}
         current += timedelta(days=1)
@@ -356,8 +411,10 @@ def get_sla_violations(threshold_hours=48):
                 'requester_name': ticket.requester_name,
                 'ticket_type': ticket.ticket_type,
                 'description': ticket.description[:100] + ('...' if len(ticket.description) > 100 else ''),
-                'created_at': ticket.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-                'closed_at': ticket.closed_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'created_at': ticket.created_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'created_at_local': format_dt_local(ticket.created_at, '%d/%m/%Y %H:%M:%S %Z'),
+                'closed_at': ticket.closed_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'closed_at_local': format_dt_local(ticket.closed_at, '%d/%m/%Y %H:%M:%S %Z'),
                 'resolution_time_hours': round(resolution_time / 3600, 1),
             })
     
@@ -404,7 +461,7 @@ def send_new_ticket_notification(ticket):
         f"<li><strong>ID Ticket:</strong> #{ticket.id}</li>",
         f"<li><strong>Tipo:</strong> {display_type}</li>",
         f"<li><strong>Richiedente:</strong> {ticket.requester_name}</li>",
-        f"<li><strong>Creato il:</strong> {ticket.created_at.strftime('%d/%m/%Y %H:%M:%S')} UTC</li>",
+        f"<li><strong>Creato il:</strong> {format_dt_local(ticket.created_at, '%d/%m/%Y %H:%M:%S %Z')}</li>",
         f"<li><strong>Descrizione:</strong> {ticket.description}</li>",
     ]
 
@@ -681,9 +738,9 @@ def export_tickets_csv():
         'ID',
         'Tipo Ticket',
         'Status',
-        'Creato UTC',
-        'Inizio Lavorazione UTC',
-        'Chiuso UTC',
+        'Creato',
+        'Inizio Lavorazione',
+        'Chiuso',
         'Richiedente',
         'Descrizione',
         'Immagine',
@@ -700,7 +757,8 @@ def export_tickets_csv():
     ])
 
     def fmt_dt(value):
-        return value.strftime('%Y-%m-%d %H:%M:%S') if value else ''
+        # Export timestamps in local timezone for human-readable reports
+        return format_dt_local(value, '%Y-%m-%d %H:%M:%S %Z') if value else ''
 
     def clean_text(value):
         if not value:

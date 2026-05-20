@@ -119,7 +119,7 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <small>{{ ticket.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                        <small>{{ ticket.created_at|format_dt_local('%d/%m/%Y %H:%M') }}</small>
                                     </td>
                                     <td>{{ ticket.requester_name }}</td>
                                     <td>
