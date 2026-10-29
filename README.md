@@ -120,6 +120,7 @@ FIXIT/
 
 #### 1. Dashboard
 - Visualizzazione tabellare di tutti i ticket
+- Riepilogo con conteggio esatto dei ticket totali, aperti, nuovi, in lavorazione e chiusi
 - **Filtri**:
   - Ricerca per keyword (ID, nome, descrizione)
   - Filtro per status

@@ -672,6 +672,22 @@ def logout():
 @login_required
 def dashboard():
     """Admin dashboard with ticket list and filters"""
+    # These counters cover the full archive, independently of the active filters
+    # and pagination shown below.
+    status_counts = {
+        status: count
+        for status, count in db.session.query(
+            Ticket.status, db.func.count(Ticket.id)
+        ).group_by(Ticket.status).all()
+    }
+    ticket_counts = {
+        'total': sum(status_counts.values()),
+        'open': status_counts.get('NUOVO', 0) + status_counts.get('IN_LAVORAZIONE', 0),
+        'new': status_counts.get('NUOVO', 0),
+        'in_progress': status_counts.get('IN_LAVORAZIONE', 0),
+        'resolved': status_counts.get('RISOLTO', 0),
+    }
+
     # Get filter parameters
     search_query = request.args.get('search', '').strip()
     status_filter = request.args.get('status', '').strip()
@@ -708,7 +724,14 @@ def dashboard():
     # Get all admins for filter dropdown
     admins = User.query.all()
     
-    return render_template('dashboard.html', tickets=tickets, admins=admins, pagination=pagination, per_page=per_page)
+    return render_template(
+        'dashboard.html',
+        tickets=tickets,
+        admins=admins,
+        pagination=pagination,
+        per_page=per_page,
+        ticket_counts=ticket_counts
+    )
 
 
 @app.route('/admin/statistics')

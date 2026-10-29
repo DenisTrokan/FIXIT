@@ -11,6 +11,42 @@
             </h2>
         </div>
 
+        <!-- Ticket summary -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-xl-3">
+                <div class="card h-100 border-start border-4 border-primary">
+                    <div class="card-body py-3 px-4">
+                        <div class="text-muted small text-uppercase fw-semibold">Totale ticket</div>
+                        <div class="fs-4 fw-bold text-primary">{{ ticket_counts.total }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card h-100 border-start border-4 border-danger">
+                    <div class="card-body py-3 px-4">
+                        <div class="text-muted small text-uppercase fw-semibold">Nuovo</div>
+                        <div class="fs-4 fw-bold text-danger">{{ ticket_counts.new }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card h-100 border-start border-4 border-warning">
+                    <div class="card-body py-3 px-4">
+                        <div class="text-muted small text-uppercase fw-semibold">In lavorazione</div>
+                        <div class="fs-4 fw-bold text-warning">{{ ticket_counts.in_progress }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card h-100 border-start border-4 border-success">
+                    <div class="card-body py-3 px-4">
+                        <div class="text-muted small text-uppercase fw-semibold">Risolto</div>
+                        <div class="fs-4 fw-bold text-success">{{ ticket_counts.resolved }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Filters Card -->
         <div class="card mb-4">
             <div class="card-header">
